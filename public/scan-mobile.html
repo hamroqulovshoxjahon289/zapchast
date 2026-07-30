@@ -1,0 +1,76 @@
+<!DOCTYPE html>
+<html lang="uz">
+<head>
+<meta charset="UTF-8">
+<script>(function(){var t=localStorage.getItem("theme")||"dark";document.documentElement.setAttribute("data-theme",t);})();</script>
+<title>Telefon skaner</title>
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<link rel="icon" href="assets/logo.png">
+<link rel="stylesheet" href="css/style.css">
+<script src="https://unpkg.com/html5-qrcode@2.3.8/html5-qrcode.min.js"></script>
+</head>
+<body>
+<div class="topbar">
+  <h1>📱 Telefon skaner</h1>
+  <button class="theme-toggle" id="themeToggle" onclick="toggleTheme()" title="Rejimni almashtirish">☀️</button>
+</div>
+<div class="container" style="max-width:480px">
+  <div class="card" id="statusCard">
+    <p class="muted" id="statusText">Yuklanmoqda...</p>
+  </div>
+  <div class="card">
+    <div id="reader" style="width:100%"></div>
+  </div>
+  <div class="card">
+    <h2>Oxirgi skanlar</h2>
+    <div id="log"></div>
+  </div>
+</div>
+
+<script src="js/common.js"></script>
+<script>
+const params = new URLSearchParams(location.search);
+const sessionId = params.get('session');
+const logEl = document.getElementById('log');
+
+if (!sessionId) {
+  document.getElementById('statusText').textContent = 'Sessiya topilmadi. Kompyuterdagi havolani qaytadan oching.';
+} else {
+  document.getElementById('statusText').textContent = 'Kamerani zapchast shtrix-kodiga qarating.';
+  const scanner = new Html5Qrcode('reader');
+  let busy = false;
+  scanner.start(
+    { facingMode: 'environment' },
+    { fps: 10, qrbox: 250 },
+    async (decodedText) => {
+      if (busy) return;
+      busy = true;
+      try {
+        const res = await fetch(`/api/sessions/${sessionId}/scan`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ barcode: decodedText, method: 'camera' })
+        });
+        const data = await res.json();
+        const entry = document.createElement('div');
+        entry.className = 'muted';
+        if (res.ok) {
+          entry.innerHTML = `✅ ${data.item.part_name || decodedText} — belgilandi`;
+          if (navigator.vibrate) navigator.vibrate(150);
+        } else {
+          entry.innerHTML = `⚠️ ${data.error || 'Topilmadi'} (${decodedText})`;
+        }
+        logEl.prepend(entry);
+      } catch (e) {
+        logEl.prepend(Object.assign(document.createElement('div'), { className: 'muted', textContent: '⚠️ Xatolik: ' + e.message }));
+      }
+      setTimeout(() => { busy = false; }, 1200);
+    },
+    () => {}
+  ).catch(err => {
+    document.getElementById('statusText').textContent = 'Kameraga ruxsat berilmadi yoki topilmadi: ' + err;
+  });
+}
+</script>
+</body>
+</html>

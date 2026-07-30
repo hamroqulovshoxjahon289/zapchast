@@ -1,0 +1,63 @@
+<!DOCTYPE html>
+<html lang="uz">
+<head>
+<meta charset="UTF-8">
+<script>(function(){var t=localStorage.getItem("theme")||"dark";document.documentElement.setAttribute("data-theme",t);})();</script>
+<title>Yorliqlar</title>
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<link rel="icon" href="assets/logo.png">
+<link rel="stylesheet" href="css/style.css">
+<style>
+  .labels-grid {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 12px;
+  }
+  .label-card {
+    border: 1px dashed #999;
+    border-radius: 8px;
+    padding: 10px;
+    text-align: center;
+    background: white;
+    color: black;
+    break-inside: avoid;
+  }
+  .label-card img { width: 100px; height: 100px; }
+  .label-card .lname { font-weight: 700; font-size: 13px; margin-top: 4px; }
+  .label-card .lcode { font-size: 12px; color: #444; }
+  @media print {
+    .labels-grid { grid-template-columns: repeat(3, 1fr); }
+  }
+</style>
+</head>
+<body>
+<div class="topbar no-print">
+  <h1><img src="assets/logo.png" class="logo" alt="logo"> <span>Temurshox mebel</span></h1>
+  <div class="topbar-right"><div class="nav" id="nav"></div><button class="theme-toggle no-print" id="themeToggle" onclick="toggleTheme()" title="Rejimni almashtirish">☀️</button></div>
+</div>
+<div class="container">
+  <div class="card no-print">
+    <h2>🏷 Zapchast yorliqlari (QR-kod)</h2>
+    <p class="muted">Har bir zapchast uchun QR-kodli yorliq. Kesib olib jismoniy zapchastga yopishtiring — keyinchalik terish jarayonida shu QR-kod skan qilinadi.</p>
+    <button class="btn" onclick="window.print()">🖨 Barchasini chop etish</button>
+  </div>
+  <div class="labels-grid" id="labelsGrid">Yuklanmoqda...</div>
+</div>
+
+<script src="js/common.js"></script>
+<script>
+renderNav('parts.html');
+async function load() {
+  const parts = await api('/api/parts');
+  document.getElementById('labelsGrid').innerHTML = parts.map(p => `
+    <div class="label-card">
+      <img src="https://api.qrserver.com/v1/create-qr-code/?size=150x150&data=${encodeURIComponent(p.barcode || p.code)}">
+      <div class="lname">${p.name}</div>
+      <div class="lcode">Kod: ${p.code}${p.barcode ? ' · ' + p.barcode : ''}</div>
+    </div>
+  `).join('') || '<p class="muted">Hali zapchast yo\'q</p>';
+}
+load();
+</script>
+</body>
+</html>

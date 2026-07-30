@@ -1,0 +1,95 @@
+<!DOCTYPE html>
+<html lang="uz">
+<head>
+<meta charset="UTF-8">
+<script>(function(){var t=localStorage.getItem("theme")||"dark";document.documentElement.setAttribute("data-theme",t);})();</script>
+<link rel="icon" href="assets/logo.png">
+<title>Sozlamalar</title>
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+<div class="topbar">
+  <h1><img src="assets/logo.png" class="logo" alt="logo"> <span>Temurshox mebel</span></h1>
+  <div class="topbar-right"><div class="nav" id="nav"></div><button class="theme-toggle" id="themeToggle" onclick="toggleTheme()" title="Rejimni almashtirish">☀️</button></div>
+</div>
+<div class="container">
+
+  <div class="card" id="lockedCard">
+    <h2>🔒 Sozlamalar himoyalangan</h2>
+    <p class="muted">Bu yerga kirish uchun joriy "Tahrirlash kodi"ni kiriting.</p>
+    <input id="accessPin" type="password" maxlength="4" inputmode="numeric" placeholder="••••" style="max-width:200px">
+    <button class="btn" onclick="checkAccess()">Kirish</button>
+  </div>
+
+  <div class="card" id="settingsCard" style="display:none">
+    <h2>🔐 Tasdiqlash kodlarini o'zgartirish</h2>
+    <p class="muted">Xavfsizlik uchun joriy kodlar hech qachon ekranda ko'rsatilmaydi — faqat yangi qiymat kiriting. Bo'sh qoldirilgan maydon o'zgarmaydi.</p>
+    <ul class="muted" style="line-height:1.9">
+      <li><strong>Qo'shish kodi</strong> — yangi zapchast/model/kategoriya qo'shishda</li>
+      <li><strong>Tahrirlash kodi</strong> — mavjudini o'zgartirishda</li>
+      <li><strong>O'chirish kodi</strong> — o'chirishda</li>
+    </ul>
+    <div class="grid cols-3">
+      <div>
+        <label>Yangi qo'shish kodi</label>
+        <input id="createPin" type="password" maxlength="4" inputmode="numeric" placeholder="o'zgartirmaslik uchun bo'sh qoldiring">
+      </div>
+      <div>
+        <label>Yangi tahrirlash kodi</label>
+        <input id="editPin" type="password" maxlength="4" inputmode="numeric" placeholder="o'zgartirmaslik uchun bo'sh qoldiring">
+      </div>
+      <div>
+        <label>Yangi o'chirish kodi</label>
+        <input id="deletePin" type="password" maxlength="4" inputmode="numeric" placeholder="o'zgartirmaslik uchun bo'sh qoldiring">
+      </div>
+    </div>
+    <label>O'zgartirishni tasdiqlash uchun joriy "Tahrirlash kodi"</label>
+    <input id="authPin" type="password" maxlength="4" inputmode="numeric" placeholder="joriy tahrirlash kodi">
+    <button class="btn" onclick="save()">Saqlash</button>
+  </div>
+</div>
+
+<script src="js/common.js"></script>
+<script>
+renderNav('settings.html');
+
+async function checkAccess() {
+  const code = document.getElementById('accessPin').value.trim();
+  if (code.length !== 4) return toast('4 xonali kodni kiriting');
+  try {
+    const r = await api('/api/settings/check-access', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ code }) });
+    if (r.ok) {
+      document.getElementById('lockedCard').style.display = 'none';
+      document.getElementById('settingsCard').style.display = 'block';
+    } else {
+      toast('Kod noto\'g\'ri');
+    }
+  } catch (e) {
+    toast('Xatolik yuz berdi');
+  }
+}
+
+document.getElementById('accessPin').addEventListener('keydown', (e) => { if (e.key === 'Enter') checkAccess(); });
+
+async function save() {
+  const create_pin = document.getElementById('createPin').value.trim();
+  const edit_pin = document.getElementById('editPin').value.trim();
+  const delete_pin = document.getElementById('deletePin').value.trim();
+  const auth_pin = document.getElementById('authPin').value.trim();
+  if (auth_pin.length !== 4) return toast('Joriy tahrirlash kodini kiriting');
+  if (!create_pin && !edit_pin && !delete_pin) return toast('Hech bo\'lmaganda bitta yangi kod kiriting');
+  try {
+    await api('/api/settings', { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ create_pin, edit_pin, delete_pin, auth_pin }) });
+    toast('Saqlandi');
+    document.getElementById('createPin').value = '';
+    document.getElementById('editPin').value = '';
+    document.getElementById('deletePin').value = '';
+    document.getElementById('authPin').value = '';
+  } catch (e) {
+    toast(e.message);
+  }
+}
+</script>
+</body>
+</html>

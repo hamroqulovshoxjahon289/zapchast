@@ -1,0 +1,76 @@
+<!DOCTYPE html>
+<html lang="uz">
+<head>
+<meta charset="UTF-8">
+<script>(function(){var t=localStorage.getItem("theme")||"dark";document.documentElement.setAttribute("data-theme",t);})();</script>
+<title>Kategoriyalar</title>
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<link rel="icon" href="assets/logo.png">
+<link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+<div class="topbar">
+  <h1><img src="assets/logo.png" class="logo" alt="logo"> <span>Temurshox mebel</span></h1>
+  <div class="topbar-right"><div class="nav" id="nav"></div><button class="theme-toggle" id="themeToggle" onclick="toggleTheme()" title="Rejimni almashtirish">☀️</button></div>
+</div>
+<div class="container">
+  <div class="card">
+    <h2>➕ Yangi kategoriya qo'shish</h2>
+    <input id="newName" placeholder="Kategoriya nomi (masalan: Spalni garnitur)">
+    <button class="btn" onclick="addCategory()">Qo'shish</button>
+  </div>
+  <div class="card">
+    <h2>🗂 Kategoriyalar ro'yxati</h2>
+    <table>
+      <thead><tr><th>#</th><th>Nomi</th><th></th></tr></thead>
+      <tbody id="rows"><tr><td colspan="3" class="muted">Yuklanmoqda...</td></tr></tbody>
+    </table>
+  </div>
+</div>
+
+<script src="js/common.js"></script>
+<script>
+renderNav('categories.html');
+let cats = [];
+
+async function load() {
+  cats = await api('/api/categories');
+  document.getElementById('rows').innerHTML = cats.map((c, i) => `
+    <tr>
+      <td>${i + 1}</td>
+      <td><input value="${c.name}" onchange="rename(${c.id}, this.value)" style="margin:0"></td>
+      <td><button class="btn danger small" onclick="del(${c.id})">O'chirish</button></td>
+    </tr>`).join('') || '<tr><td colspan="3" class="muted">Hali kategoriya yo\'q</td></tr>';
+}
+
+async function addCategory() {
+  const name = document.getElementById('newName').value.trim();
+  if (!name) return toast('Nomini kiriting');
+  await withPin('create', async (pin) => {
+    await api('/api/categories', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ name, pin }) });
+    document.getElementById('newName').value = '';
+    toast('Qo\'shildi');
+    load();
+  });
+}
+
+async function rename(id, name) {
+  await withPin('edit', async (pin) => {
+    await api('/api/categories/' + id, { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ name, pin }) });
+    toast('Saqlandi');
+  });
+}
+
+async function del(id) {
+  if (!confirm('Kategoriyani o\'chirishni tasdiqlaysizmi? (bog\'liq modellar ham o\'chadi)')) return;
+  await withPin('delete', async (pin) => {
+    await api('/api/categories/' + id, { method: 'DELETE', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ pin }) });
+    toast('O\'chirildi');
+    load();
+  });
+}
+
+load();
+</script>
+</body>
+</html>

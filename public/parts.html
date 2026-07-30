@@ -1,0 +1,163 @@
+<!DOCTYPE html>
+<html lang="uz">
+<head>
+<meta charset="UTF-8">
+<script>(function(){var t=localStorage.getItem("theme")||"dark";document.documentElement.setAttribute("data-theme",t);})();</script>
+<title>Zapchastlar</title>
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<link rel="icon" href="assets/logo.png">
+<link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+<div class="topbar">
+  <h1><img src="assets/logo.png" class="logo" alt="logo"> <span>Temurshox mebel</span></h1>
+  <div class="topbar-right"><div class="nav" id="nav"></div><button class="theme-toggle" id="themeToggle" onclick="toggleTheme()" title="Rejimni almashtirish">☀️</button></div>
+</div>
+<div class="container">
+  <div class="card" style="display:flex; justify-content:space-between; align-items:center;">
+    <div>
+      <h2 style="margin:0">📦 Zapchastlar ro'yxati</h2>
+      <p class="muted" style="margin:4px 0 0">Har bir zapchastning nomi, 4 xonali kodi va shtrix/QR-kodi bo'ladi (QR-kod avtomatik yaratiladi)</p>
+    </div>
+    <div style="display:flex; gap:10px;">
+      <a href="labels.html" target="_blank" class="btn secondary">🏷 Barcha yorliqlarni chop etish</a>
+      <button class="btn" onclick="openModal()">➕ Yangi zapchast</button>
+    </div>
+  </div>
+
+  <div class="card">
+    <input id="search" placeholder="Qidirish (nomi, kodi yoki shtrix-kod)..." oninput="renderRows()">
+    <table>
+      <thead><tr><th>Rasm</th><th>QR</th><th>Nomi</th><th>Kod</th><th>Shtrix-kod</th><th>Parametrlar</th><th></th></tr></thead>
+      <tbody id="rows"><tr><td colspan="7" class="muted">Yuklanmoqda...</td></tr></tbody>
+    </table>
+  </div>
+</div>
+
+<div class="modal-overlay" id="modalOverlay">
+  <div class="modal">
+    <h3 id="modalTitle">Yangi zapchast</h3>
+    <form id="partForm" onsubmit="return savePart(event)">
+      <input type="hidden" id="partId">
+      <label>Nomi</label>
+      <input id="pName" required placeholder="masalan: Samarez 1,6">
+      <label>Kod (4 xonali)</label>
+      <input id="pCode" maxlength="4" placeholder="avtomatik beriladi">
+      <label>Shtrix/QR-kod (ixtiyoriy — bo'sh qoldirsangiz avtomatik yaratiladi)</label>
+      <input id="pBarcode" placeholder="bo'sh qoldiring — avtomatik QR-kod yaratiladi, yoki mavjud shtrix-kodni skan qiling">
+      <label>Bu zapchastda qaysi parametrlar bo'ladi?</label>
+      <div class="checkbox-row"><input type="checkbox" id="pLength"> <label style="margin:0">Uzunligi</label></div>
+      <div class="checkbox-row"><input type="checkbox" id="pQuantity"> <label style="margin:0">Soni</label></div>
+      <div class="checkbox-row"><input type="checkbox" id="pWeight"> <label style="margin:0">Grammi</label></div>
+      <label>Rasm (ixtiyoriy)</label>
+      <input type="file" id="pPhoto" accept="image/*">
+      <div style="display:flex; gap:10px; margin-top:14px;">
+        <button type="submit" class="btn">Saqlash</button>
+        <button type="button" class="btn secondary" onclick="closeModal()">Bekor qilish</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<script src="js/common.js"></script>
+<script>
+renderNav('parts.html');
+let parts = [];
+
+async function load() {
+  parts = await api('/api/parts');
+  renderRows();
+}
+
+function renderRows() {
+  const q = document.getElementById('search').value.toLowerCase();
+  const filtered = parts.filter(p =>
+    p.name.toLowerCase().includes(q) || (p.code || '').includes(q) || (p.barcode || '').toLowerCase().includes(q)
+  );
+  document.getElementById('rows').innerHTML = filtered.map(p => `
+    <tr>
+      <td>${p.photo ? `<img class="thumb" src="${p.photo}">` : '<span class="muted">—</span>'}</td>
+      <td>${p.barcode ? `<img class="thumb" src="https://api.qrserver.com/v1/create-qr-code/?size=80x80&data=${encodeURIComponent(p.barcode)}" title="${p.barcode}">` : '<span class="muted">—</span>'}</td>
+      <td>${p.name}</td>
+      <td><strong>${p.code}</strong></td>
+      <td>${p.barcode || '<span class="muted">—</span>'}</td>
+      <td>${[p.has_length && 'Uzunlik', p.has_quantity && 'Soni', p.has_weight && 'Gram'].filter(Boolean).join(', ') || '—'}</td>
+      <td style="white-space:nowrap">
+        <button class="btn secondary small" onclick="editPart(${p.id})">Tahrirlash</button>
+        <button class="btn danger small" onclick="delPart(${p.id})">O'chirish</button>
+      </td>
+    </tr>`).join('') || '<tr><td colspan="7" class="muted">Hech narsa topilmadi</td></tr>';
+}
+
+async function openModal(part) {
+  document.getElementById('modalTitle').textContent = part ? 'Zapchastni tahrirlash' : 'Yangi zapchast';
+  document.getElementById('partId').value = part ? part.id : '';
+  document.getElementById('pName').value = part ? part.name : '';
+  document.getElementById('pBarcode').value = part ? (part.barcode || '') : '';
+  document.getElementById('pLength').checked = part ? !!part.has_length : false;
+  document.getElementById('pQuantity').checked = part ? !!part.has_quantity : false;
+  document.getElementById('pWeight').checked = part ? !!part.has_weight : false;
+  document.getElementById('pPhoto').value = '';
+  if (part) {
+    document.getElementById('pCode').value = part.code;
+  } else {
+    const r = await api('/api/parts/next-code');
+    document.getElementById('pCode').value = r.code;
+  }
+  document.getElementById('modalOverlay').classList.add('show');
+}
+
+function closeModal() {
+  document.getElementById('modalOverlay').classList.remove('show');
+}
+
+function editPart(id) {
+  const part = parts.find(p => p.id === id);
+  openModal(part);
+}
+
+async function savePart(e) {
+  e.preventDefault();
+  const id = document.getElementById('partId').value;
+  const type = id ? 'edit' : 'create';
+  await withPin(type, async (pin) => {
+    const fd = new FormData();
+    fd.append('name', document.getElementById('pName').value);
+    fd.append('code', document.getElementById('pCode').value);
+    fd.append('barcode', document.getElementById('pBarcode').value);
+    fd.append('has_length', document.getElementById('pLength').checked);
+    fd.append('has_quantity', document.getElementById('pQuantity').checked);
+    fd.append('has_weight', document.getElementById('pWeight').checked);
+    fd.append('pin', pin);
+    const file = document.getElementById('pPhoto').files[0];
+    if (file) fd.append('photo', file);
+    try {
+      if (id) {
+        await fetch('/api/parts/' + id, { method: 'PUT', body: fd }).then(r => { if (!r.ok) return r.json().then(j => { throw new Error(j.error); }); });
+      } else {
+        await fetch('/api/parts', { method: 'POST', body: fd }).then(r => { if (!r.ok) return r.json().then(j => { throw new Error(j.error); }); });
+      }
+      toast('Saqlandi');
+      closeModal();
+      load();
+    } catch (err) {
+      toast(err.message);
+    }
+  });
+  return false;
+}
+
+async function delPart(id) {
+  if (!confirm('Ushbu zapchastni o\'chirishni tasdiqlaysizmi?')) return;
+  await withPin('delete', async (pin) => {
+    await fetch('/api/parts/' + id, { method: 'DELETE', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ pin }) })
+      .then(r => { if (!r.ok) return r.json().then(j => { throw new Error(j.error); }); });
+    toast('O\'chirildi');
+    load();
+  });
+}
+
+load();
+</script>
+</body>
+</html>

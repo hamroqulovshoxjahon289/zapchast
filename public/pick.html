@@ -1,0 +1,165 @@
+<!DOCTYPE html>
+<html lang="uz">
+<head>
+<meta charset="UTF-8">
+<script>(function(){var t=localStorage.getItem("theme")||"dark";document.documentElement.setAttribute("data-theme",t);})();</script>
+<title>Terish jarayoni</title>
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<link rel="icon" href="assets/logo.png">
+<link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+<div class="topbar">
+  <h1><img src="assets/logo.png" class="logo" alt="logo"> <span>Temurshox mebel</span></h1>
+  <div class="topbar-right"><div class="nav" id="nav"></div><button class="theme-toggle" id="themeToggle" onclick="toggleTheme()" title="Rejimni almashtirish">☀️</button></div>
+</div>
+<div class="container">
+
+  <div class="card" id="setupCard">
+    <h2>🔍 Yangi terish jarayonini boshlash</h2>
+    <div class="grid cols-2">
+      <div>
+        <label>Ishchi (zapchast teruvchi)</label>
+        <select id="wWorker"></select>
+      </div>
+      <div>
+        <label>Kategoriya</label>
+        <select id="wCategory" onchange="loadModels()"></select>
+      </div>
+    </div>
+    <label>Model</label>
+    <select id="wModel"></select>
+    <button class="btn" onclick="startSession()">Terishni boshlash</button>
+  </div>
+
+  <div class="card" id="sessionCard" style="display:none">
+    <div style="display:flex; justify-content:space-between; align-items:flex-start; flex-wrap:wrap; gap:10px;">
+      <div>
+        <h2 style="margin:0" id="sessionTitle"></h2>
+        <p class="muted" id="sessionSub"></p>
+      </div>
+      <div style="text-align:right">
+        <button class="btn secondary small" onclick="showPhoneLink()">📱 Telefon orqali skan</button>
+      </div>
+    </div>
+
+    <div style="margin:16px 0">
+      <label>Skaner uchun (skaner qurilma bilan skan qiling — kursor shu yerda bo'lsin)</label>
+      <input id="scanInput" placeholder="Shtrix-kodni skan qiling yoki kod kiriting va Enter bosing" autofocus>
+    </div>
+
+    <div id="itemsList"></div>
+
+    <div style="margin-top:20px; display:flex; gap:10px;">
+      <button class="btn" onclick="finishSession()">✅ Terishni yakunlash va chop etish</button>
+      <button class="btn secondary" onclick="location.reload()">Bekor qilish</button>
+    </div>
+  </div>
+
+</div>
+
+<div class="modal-overlay" id="phoneModal">
+  <div class="modal" style="text-align:center">
+    <h3>📱 Telefon orqali skan qilish</h3>
+    <p class="muted">Ushbu havolani telefon brauzerida oching va kamera orqali shtrix-kodlarni skan qiling. Natijalar shu sahifada avtomatik yangilanadi.</p>
+    <p id="phoneUrl" style="word-break:break-all; background:var(--panel2); padding:10px; border-radius:8px;"></p>
+    <img id="qrImg" style="margin-top:10px; border-radius:8px;">
+    <div style="margin-top:16px">
+      <button class="btn secondary" onclick="document.getElementById('phoneModal').classList.remove('show')">Yopish</button>
+    </div>
+  </div>
+</div>
+
+<script src="/socket.io/socket.io.js"></script>
+<script src="js/common.js"></script>
+<script>
+renderNav('pick.html');
+let categories = [], models = [], workers = [], currentSession = null, socket = null;
+
+async function init() {
+  [categories, models, workers] = await Promise.all([api('/api/categories'), api('/api/models'), api('/api/workers')]);
+  document.getElementById('wWorker').innerHTML = workers.map(w => `<option value="${w.id}">${w.name}</option>`).join('') || '<option disabled>Avval ishchi qo\'shing</option>';
+  document.getElementById('wCategory').innerHTML = categories.map(c => `<option value="${c.id}">${c.name}</option>`).join('') || '<option disabled>Avval kategoriya qo\'shing</option>';
+  loadModels();
+}
+
+function loadModels() {
+  const catId = document.getElementById('wCategory').value;
+  const ms = models.filter(m => String(m.category_id) === catId);
+  document.getElementById('wModel').innerHTML = ms.map(m => `<option value="${m.id}">${m.name}</option>`).join('') || '<option disabled>Bu kategoriyada model yo\'q</option>';
+}
+
+async function startSession() {
+  const worker_id = document.getElementById('wWorker').value;
+  const model_id = document.getElementById('wModel').value;
+  if (!worker_id || !model_id) return toast('Ishchi va modelni tanlang');
+  const { id } = await api('/api/sessions', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ worker_id, model_id }) });
+  currentSession = id;
+  document.getElementById('setupCard').style.display = 'none';
+  document.getElementById('sessionCard').style.display = 'block';
+  socket = io();
+  socket.emit('join_session', id);
+  socket.on('item_updated', () => loadSession());
+  await loadSession();
+  document.getElementById('scanInput').focus();
+
+  document.getElementById('scanInput').addEventListener('keydown', async (e) => {
+    if (e.key === 'Enter') {
+      const val = e.target.value.trim();
+      e.target.value = '';
+      if (!val) return;
+      try {
+        await api(`/api/sessions/${currentSession}/scan`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ barcode: val, method: 'scanner' }) });
+        loadSession();
+      } catch (err) {
+        toast(err.message);
+      }
+    }
+  });
+}
+
+async function loadSession() {
+  const s = await api('/api/sessions/' + currentSession);
+  document.getElementById('sessionTitle').textContent = `${s.category_name} > ${s.model_name}`;
+  document.getElementById('sessionSub').textContent = `Ishchi: ${s.worker_name} (${s.worker_phone || '—'})`;
+  document.getElementById('itemsList').innerHTML = s.items.map(it => {
+    const details = [
+      it.has_quantity && it.quantity != null ? `Soni: ${it.quantity}` : '',
+      it.has_weight && it.weight != null ? `Grammi: ${it.weight}` : '',
+      it.has_length && it.length != null ? `Uzunligi: ${it.length}` : ''
+    ].filter(Boolean);
+    const icon = it.status === 'scanned' ? '✅' : it.status === 'manual_x' ? '❌' : '⏳';
+    return `<div class="pick-item ${it.status}">
+      ${it.photo ? `<img class="thumb" src="${it.photo}">` : ''}
+      <div class="info">
+        <strong>${it.part_name}</strong> <span class="muted">(${it.code})</span>
+        ${details.map(d => `<span class="badge info" style="margin-left:8px;">${d}</span>`).join('')}
+      </div>
+      <div class="status-icon">${icon}</div>
+      ${it.status === 'pending' ? `<button class="btn danger small" onclick="markManual(${it.id})">X qo'yish</button>` : ''}
+    </div>`;
+  }).join('');
+}
+
+async function markManual(itemId) {
+  await api(`/api/sessions/${currentSession}/scan`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ item_id: itemId, method: 'manual_x' }) });
+  loadSession();
+}
+
+function showPhoneLink() {
+  const url = `${location.origin}/scan-mobile.html?session=${currentSession}`;
+  document.getElementById('phoneUrl').textContent = url;
+  document.getElementById('qrImg').src = `https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=${encodeURIComponent(url)}`;
+  document.getElementById('phoneModal').classList.add('show');
+}
+
+async function finishSession() {
+  if (!confirm('Terish jarayonini yakunlaysizmi?')) return;
+  await api(`/api/sessions/${currentSession}/finish`, { method: 'POST' });
+  location.href = `print.html?session=${currentSession}`;
+}
+
+init();
+</script>
+</body>
+</html>

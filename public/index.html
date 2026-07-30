@@ -1,0 +1,71 @@
+<!DOCTYPE html>
+<html lang="uz">
+<head>
+<meta charset="UTF-8">
+<script>(function(){var t=localStorage.getItem("theme")||"dark";document.documentElement.setAttribute("data-theme",t);})();</script>
+<title>Temurshox mebel — Zapchast tizimi</title>
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<link rel="icon" href="assets/logo.png">
+<link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+<div class="topbar">
+  <h1><img src="assets/logo.png" class="logo" alt="logo"> <span>Temurshox mebel</span></h1>
+  <div class="topbar-right"><div class="nav" id="nav"></div><button class="theme-toggle" id="themeToggle" onclick="toggleTheme()" title="Rejimni almashtirish">☀️</button></div>
+</div>
+<div class="container">
+  <div class="grid cols-3">
+    <div class="card" style="text-align:center">
+      <h2>📦 Zapchastlar</h2>
+      <p class="muted" id="partsCount">—</p>
+      <a href="parts.html" class="btn secondary">Boshqarish</a>
+    </div>
+    <div class="card" style="text-align:center">
+      <h2>🗂 Kategoriya / Model</h2>
+      <p class="muted" id="modelsCount">—</p>
+      <a href="models.html" class="btn secondary">Boshqarish</a>
+    </div>
+    <div class="card" style="text-align:center">
+      <h2>👷 Ishchilar</h2>
+      <p class="muted" id="workersCount">—</p>
+      <a href="workers.html" class="btn secondary">Boshqarish</a>
+    </div>
+  </div>
+
+  <div class="card">
+    <h2>🔍 Terish jarayonini boshlash</h2>
+    <p class="muted">Ishchi zapchast terishni shu yerdan boshlaydi.</p>
+    <a href="pick.html" class="btn">Terishni boshlash</a>
+  </div>
+
+  <div class="card">
+    <h2>🕓 So'nggi sessiyalar</h2>
+    <table>
+      <thead><tr><th>Sana</th><th>Ishchi</th><th>Model</th><th>Holat</th></tr></thead>
+      <tbody id="sessionsBody"><tr><td colspan="4" class="muted">Yuklanmoqda...</td></tr></tbody>
+    </table>
+  </div>
+</div>
+
+<script src="js/common.js"></script>
+<script>
+renderNav('index.html');
+(async () => {
+  const [parts, models, workers, sessions] = await Promise.all([
+    api('/api/parts'), api('/api/models'), api('/api/workers'), api('/api/sessions')
+  ]);
+  document.getElementById('partsCount').textContent = parts.length + ' ta zapchast';
+  document.getElementById('modelsCount').textContent = models.length + ' ta model';
+  document.getElementById('workersCount').textContent = workers.length + ' ta ishchi';
+  const body = document.getElementById('sessionsBody');
+  body.innerHTML = sessions.slice(0, 10).map(s => `
+    <tr>
+      <td>${fmtDate(s.created_at)}</td>
+      <td>${s.worker_name}</td>
+      <td>${s.category_name} &gt; ${s.model_name}</td>
+      <td><span class="badge ${s.status === 'finished' ? 'ok' : 'pending'}">${s.status === 'finished' ? 'Tugallangan' : 'Jarayonda'}</span></td>
+    </tr>`).join('') || '<tr><td colspan="4" class="muted">Hali sessiya yo\'q</td></tr>';
+})();
+</script>
+</body>
+</html>

@@ -1,0 +1,58 @@
+<!DOCTYPE html>
+<html lang="uz">
+<head>
+<meta charset="UTF-8">
+<script>(function(){var t=localStorage.getItem("theme")||"dark";document.documentElement.setAttribute("data-theme",t);})();</script>
+<title>Chop etish</title>
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<link rel="icon" href="assets/logo.png">
+<link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+<div class="topbar no-print">
+  <h1><img src="assets/logo.png" class="logo" alt="logo"> <span>Temurshox mebel</span></h1>
+  <div class="topbar-right"><div class="nav" id="nav"></div><button class="theme-toggle no-print" id="themeToggle" onclick="toggleTheme()" title="Rejimni almashtirish">☀️</button></div>
+</div>
+<div class="container">
+  <div class="card no-print">
+    <button class="btn" onclick="window.print()">🖨 Chop etish</button>
+    <a href="pick.html" class="btn secondary">Yangi terish</a>
+  </div>
+  <div class="card" id="report">Yuklanmoqda...</div>
+</div>
+
+<script src="js/common.js"></script>
+<script>
+renderNav('print.html');
+const sessionId = new URLSearchParams(location.search).get('session');
+
+async function load() {
+  const s = await api('/api/sessions/' + sessionId);
+  const scanned = s.items.filter(i => i.status === 'scanned').length;
+  const manual = s.items.filter(i => i.status === 'manual_x').length;
+  const pending = s.items.filter(i => i.status === 'pending').length;
+  document.getElementById('report').innerHTML = `
+    <h2>Terish hisoboti — Sessiya #${s.id}</h2>
+    <p><strong>Ishchi:</strong> ${s.worker_name} (${s.worker_phone || '—'})</p>
+    <p><strong>Kategoriya / Model:</strong> ${s.category_name} > ${s.model_name}</p>
+    <p><strong>Boshlangan:</strong> ${fmtDate(s.created_at)} &nbsp; <strong>Tugallangan:</strong> ${fmtDate(s.finished_at)}</p>
+    <p><strong>Natija:</strong> ✅ ${scanned} ta skan qilindi &nbsp; ❌ ${manual} ta qo'lda belgilandi &nbsp; ⏳ ${pending} ta qolgan</p>
+    <table>
+      <thead><tr><th>Zapchast</th><th>Kod</th><th>Soni</th><th>Grammi</th><th>Uzunligi</th><th>Holat</th></tr></thead>
+      <tbody>
+        ${s.items.map(it => `<tr>
+          <td>${it.part_name}</td>
+          <td>${it.code}</td>
+          <td>${it.has_quantity && it.quantity != null ? it.quantity : '—'}</td>
+          <td>${it.has_weight && it.weight != null ? it.weight : '—'}</td>
+          <td>${it.has_length && it.length != null ? it.length : '—'}</td>
+          <td>${it.status === 'scanned' ? '✅ Skan qilindi' : it.status === 'manual_x' ? '❌ Qo\'lda' : '⏳ Kutilmoqda'}</td>
+        </tr>`).join('')}
+      </tbody>
+    </table>
+  `;
+}
+load();
+</script>
+</body>
+</html>

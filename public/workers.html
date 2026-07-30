@@ -1,0 +1,79 @@
+<!DOCTYPE html>
+<html lang="uz">
+<head>
+<meta charset="UTF-8">
+<script>(function(){var t=localStorage.getItem("theme")||"dark";document.documentElement.setAttribute("data-theme",t);})();</script>
+<title>Ishchilar</title>
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<link rel="icon" href="assets/logo.png">
+<link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+<div class="topbar">
+  <h1><img src="assets/logo.png" class="logo" alt="logo"> <span>Temurshox mebel</span></h1>
+  <div class="topbar-right"><div class="nav" id="nav"></div><button class="theme-toggle" id="themeToggle" onclick="toggleTheme()" title="Rejimni almashtirish">☀️</button></div>
+</div>
+<div class="container">
+  <div class="card">
+    <h2>➕ Yangi ishchi (zapchast teruvchi) qo'shish</h2>
+    <div class="grid cols-2">
+      <div><label>Ismi</label><input id="wName" placeholder="Ism familiya"></div>
+      <div><label>Telefon raqami</label><input id="wPhone" placeholder="+998 90 123 45 67"></div>
+    </div>
+    <button class="btn" onclick="addWorker()">Qo'shish</button>
+  </div>
+  <div class="card">
+    <h2>👷 Ishchilar ro'yxati</h2>
+    <table>
+      <thead><tr><th>Ismi</th><th>Telefon</th><th></th></tr></thead>
+      <tbody id="rows"><tr><td colspan="3" class="muted">Yuklanmoqda...</td></tr></tbody>
+    </table>
+  </div>
+</div>
+
+<script src="js/common.js"></script>
+<script>
+renderNav('workers.html');
+let workers = [];
+
+async function load() {
+  workers = await api('/api/workers');
+  document.getElementById('rows').innerHTML = workers.map(w => `
+    <tr>
+      <td><input value="${w.name}" onchange="rename(${w.id}, this.value, '${(w.phone||'').replace(/'/g,"")}')" style="margin:0"></td>
+      <td><input value="${w.phone || ''}" onchange="rephone(${w.id}, '${w.name.replace(/'/g,"")}', this.value)" style="margin:0"></td>
+      <td><button class="btn danger small" onclick="del(${w.id})">O'chirish</button></td>
+    </tr>`).join('') || '<tr><td colspan="3" class="muted">Hali ishchi yo\'q</td></tr>';
+}
+
+async function addWorker() {
+  const name = document.getElementById('wName').value.trim();
+  const phone = document.getElementById('wPhone').value.trim();
+  if (!name) return toast('Ismini kiriting');
+  await api('/api/workers', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ name, phone }) });
+  document.getElementById('wName').value = '';
+  document.getElementById('wPhone').value = '';
+  toast('Qo\'shildi');
+  load();
+}
+
+async function rename(id, name, phone) {
+  await api('/api/workers/' + id, { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ name, phone }) });
+  toast('Saqlandi');
+}
+async function rephone(id, name, phone) {
+  await api('/api/workers/' + id, { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ name, phone }) });
+  toast('Saqlandi');
+}
+
+async function del(id) {
+  if (!confirm('Ishchini o\'chirishni tasdiqlaysizmi?')) return;
+  await api('/api/workers/' + id, { method: 'DELETE' });
+  toast('O\'chirildi');
+  load();
+}
+
+load();
+</script>
+</body>
+</html>

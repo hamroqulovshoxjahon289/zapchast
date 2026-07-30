@@ -1,0 +1,180 @@
+<!DOCTYPE html>
+<html lang="uz">
+<head>
+<meta charset="UTF-8">
+<script>(function(){var t=localStorage.getItem("theme")||"dark";document.documentElement.setAttribute("data-theme",t);})();</script>
+<title>Modellar</title>
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<link rel="icon" href="assets/logo.png">
+<link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+<div class="topbar">
+  <h1><img src="assets/logo.png" class="logo" alt="logo"> <span>Temurshox mebel</span></h1>
+  <div class="topbar-right"><div class="nav" id="nav"></div><button class="theme-toggle" id="themeToggle" onclick="toggleTheme()" title="Rejimni almashtirish">☀️</button></div>
+</div>
+<div class="container">
+  <div class="card" style="display:flex; justify-content:space-between; align-items:center;">
+    <h2 style="margin:0">🗂 Kategoriya va modellar</h2>
+    <button class="btn" onclick="openModal()">➕ Yangi model</button>
+  </div>
+
+  <div class="card">
+    <label>Kategoriya bo'yicha filtrlash</label>
+    <select id="filterCategory" onchange="renderTree()"><option value="">— Barchasi —</option></select>
+    <div id="tree"></div>
+  </div>
+</div>
+
+<div class="modal-overlay" id="modalOverlay">
+  <div class="modal" style="max-width:680px">
+    <h3 id="modalTitle">Yangi model</h3>
+    <form onsubmit="return saveModel(event)">
+      <input type="hidden" id="modelId">
+      <label>Kategoriya</label>
+      <select id="mCategory" required></select>
+      <label>Model nomi</label>
+      <input id="mName" required placeholder="masalan: Olma">
+      <label>Ushbu modelga kerak bo'ladigan zapchastlar</label>
+      <div id="partsCheckList" style="max-height:340px; overflow-y:auto; border:1px solid var(--border); border-radius:8px; padding:10px;"></div>
+      <div style="display:flex; gap:10px; margin-top:14px;">
+        <button type="submit" class="btn">Saqlash</button>
+        <button type="button" class="btn secondary" onclick="closeModal()">Bekor qilish</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<script src="js/common.js"></script>
+<script>
+renderNav('models.html');
+let categories = [], parts = [], models = [];
+
+async function loadAll() {
+  [categories, parts, models] = await Promise.all([api('/api/categories'), api('/api/parts'), api('/api/models')]);
+  const catSelect = document.getElementById('filterCategory');
+  catSelect.innerHTML = '<option value="">— Barchasi —</option>' + categories.map(c => `<option value="${c.id}">${c.name}</option>`).join('');
+  document.getElementById('mCategory').innerHTML = categories.map(c => `<option value="${c.id}">${c.name}</option>`).join('');
+  renderTree();
+}
+
+function renderTree() {
+  const filter = document.getElementById('filterCategory').value;
+  const tree = document.getElementById('tree');
+  const cats = filter ? categories.filter(c => String(c.id) === filter) : categories;
+  if (!cats.length) { tree.innerHTML = '<p class="muted">Avval kategoriya qo\'shing</p>'; return; }
+  tree.innerHTML = cats.map(c => {
+    const catModels = models.filter(m => m.category_id === c.id);
+    return `<div style="margin-top:16px">
+      <h3 style="color:var(--accent2); margin-bottom:6px">${c.name}</h3>
+      ${catModels.length ? `<table><thead><tr><th>Model</th><th>Zapchastlar soni</th><th></th></tr></thead><tbody>
+        ${catModels.map(m => `<tr>
+          <td>${m.name}</td>
+          <td class="muted" id="pc-${m.id}">—</td>
+          <td><button class="btn secondary small" onclick="editModel(${m.id})">Tahrirlash</button>
+          <button class="btn danger small" onclick="delModel(${m.id})">O'chirish</button></td>
+        </tr>`).join('')}
+      </tbody></table>` : '<p class="muted">Model yo\'q</p>'}
+    </div>`;
+  }).join('');
+  catModelsCountFetch(cats);
+}
+
+async function catModelsCountFetch(cats) {
+  for (const c of cats) {
+    const ms = models.filter(m => m.category_id === c.id);
+    for (const m of ms) {
+      const full = await api('/api/models/' + m.id);
+      const el = document.getElementById('pc-' + m.id);
+      if (el) el.textContent = full.parts.length + ' ta';
+    }
+  }
+}
+
+function renderPartsCheckList(selected = {}) {
+  const container = document.getElementById('partsCheckList');
+  container.innerHTML = parts.map(p => {
+    const sel = selected[p.id];
+    return `<div style="padding:8px; border-bottom:1px solid var(--border)">
+      <div class="checkbox-row">
+        <input type="checkbox" id="chk-${p.id}" ${sel ? 'checked' : ''} onchange="toggleExtra(${p.id})">
+        <label style="margin:0"><strong>${p.name}</strong> <span class="muted">(${p.code})</span></label>
+      </div>
+      <div id="extra-${p.id}" style="display:${sel ? 'flex' : 'none'}; gap:8px; margin-left:26px;">
+        ${p.has_quantity ? `<input type="number" step="any" placeholder="Soni" id="qty-${p.id}" value="${sel ? (sel.quantity ?? '') : ''}" style="margin:0">` : ''}
+        ${p.has_weight ? `<input type="number" step="any" placeholder="Grammi" id="wt-${p.id}" value="${sel ? (sel.weight ?? '') : ''}" style="margin:0">` : ''}
+        ${p.has_length ? `<input type="number" step="any" placeholder="Uzunligi" id="len-${p.id}" value="${sel ? (sel.length ?? '') : ''}" style="margin:0">` : ''}
+      </div>
+    </div>`;
+  }).join('');
+}
+
+function toggleExtra(id) {
+  const checked = document.getElementById('chk-' + id).checked;
+  document.getElementById('extra-' + id).style.display = checked ? 'flex' : 'none';
+}
+
+function openModal() {
+  document.getElementById('modalTitle').textContent = 'Yangi model';
+  document.getElementById('modelId').value = '';
+  document.getElementById('mName').value = '';
+  document.getElementById('mCategory').value = categories[0]?.id || '';
+  renderPartsCheckList({});
+  document.getElementById('modalOverlay').classList.add('show');
+}
+
+function closeModal() {
+  document.getElementById('modalOverlay').classList.remove('show');
+}
+
+async function editModel(id) {
+  const full = await api('/api/models/' + id);
+  document.getElementById('modalTitle').textContent = 'Modelni tahrirlash';
+  document.getElementById('modelId').value = full.id;
+  document.getElementById('mName').value = full.name;
+  document.getElementById('mCategory').value = full.category_id;
+  const selected = {};
+  full.parts.forEach(p => selected[p.part_id] = p);
+  renderPartsCheckList(selected);
+  document.getElementById('modalOverlay').classList.add('show');
+}
+
+async function saveModel(e) {
+  e.preventDefault();
+  const id = document.getElementById('modelId').value;
+  const category_id = document.getElementById('mCategory').value;
+  const name = document.getElementById('mName').value;
+  const selectedParts = parts.filter(p => document.getElementById('chk-' + p.id)?.checked).map(p => ({
+    part_id: p.id,
+    quantity: p.has_quantity ? (parseFloat(document.getElementById('qty-' + p.id).value) || null) : null,
+    weight: p.has_weight ? (parseFloat(document.getElementById('wt-' + p.id).value) || null) : null,
+    length: p.has_length ? (parseFloat(document.getElementById('len-' + p.id).value) || null) : null,
+  }));
+  const type = id ? 'edit' : 'create';
+  await withPin(type, async (pin) => {
+    const body = JSON.stringify({ category_id, name, parts: selectedParts, pin });
+    if (id) {
+      await api('/api/models/' + id, { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body });
+    } else {
+      await api('/api/models', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body });
+    }
+    toast('Saqlandi');
+    closeModal();
+    loadAll();
+  });
+  return false;
+}
+
+async function delModel(id) {
+  if (!confirm('Modelni o\'chirishni tasdiqlaysizmi?')) return;
+  await withPin('delete', async (pin) => {
+    await api('/api/models/' + id, { method: 'DELETE', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ pin }) });
+    toast('O\'chirildi');
+    loadAll();
+  });
+}
+
+loadAll();
+</script>
+</body>
+</html>
