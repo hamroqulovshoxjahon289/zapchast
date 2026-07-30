@@ -18,8 +18,25 @@
     <button class="btn" onclick="window.print()">🖨 Chop etish</button>
     <a href="pick.html" class="btn secondary">Yangi terish</a>
   </div>
+  <div class="card" id="qrLabel" style="text-align:center"></div>
   <div class="card" id="report">Yuklanmoqda...</div>
 </div>
+
+<style>
+.session-qr-label {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+}
+.session-qr-label img { width: 180px; height: 180px; }
+.session-qr-label .sq-model { font-size: 20px; font-weight: 800; }
+.session-qr-label .sq-worker { font-size: 15px; color: var(--muted); }
+.session-qr-label .sq-date { font-size: 12px; color: var(--muted); }
+@media print {
+  .session-qr-label img { width: 160px; height: 160px; }
+}
+</style>
 
 <script src="js/common.js"></script>
 <script>
@@ -31,6 +48,20 @@ async function load() {
   const scanned = s.items.filter(i => i.status === 'scanned').length;
   const manual = s.items.filter(i => i.status === 'manual_x').length;
   const pending = s.items.filter(i => i.status === 'pending').length;
+
+  // Bitta umumiy QR-kod: shu sessiyaning to'liq hisobotiga havola.
+  // Buni kim skan qilsa ham (telefon kamerasi yoki istalgan QR ilova) shu sahifa ochiladi
+  // va terilgan/terilmagan zapchastlar, kim tergani, qaysi model ekani ko'rinadi.
+  const reportUrl = `${location.origin}/print.html?session=${s.id}`;
+  document.getElementById('qrLabel').innerHTML = `
+    <div class="session-qr-label">
+      <img src="https://api.qrserver.com/v1/create-qr-code/?size=220x220&data=${encodeURIComponent(reportUrl)}" alt="QR">
+      <div class="sq-model">${s.category_name} &gt; ${s.model_name}</div>
+      <div class="sq-worker">Terdi: ${s.worker_name}${s.worker_phone ? ' · ' + s.worker_phone : ''}</div>
+      <div class="sq-date">Sessiya #${s.id} · ${fmtDate(s.finished_at || s.created_at)}</div>
+    </div>
+  `;
+
   document.getElementById('report').innerHTML = `
     <h2>Terish hisoboti — Sessiya #${s.id}</h2>
     <p><strong>Ishchi:</strong> ${s.worker_name} (${s.worker_phone || '—'})</p>

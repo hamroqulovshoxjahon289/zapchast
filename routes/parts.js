@@ -116,9 +116,17 @@ router.delete('/:id', (req, res) => {
   const { pin } = req.body;
   if (!checkPin('delete', pin)) return res.status(403).json({ error: 'O\'chirish kodi noto\'g\'ri' });
   const existing = db.prepare('SELECT * FROM parts WHERE id=?').get(req.params.id);
-  db.prepare('DELETE FROM parts WHERE id=?').run(req.params.id);
-  logHistory('delete', 'part', { id: req.params.id, name: existing && existing.name, code: existing && existing.code });
-  res.json({ ok: true });
+  if (!existing) return res.status(404).json({ error: 'Zapchast topilmadi' });
+  try {
+    db.prepare('DELETE FROM parts WHERE id=?').run(req.params.id);
+    logHistory('delete', 'part', { id: req.params.id, name: existing.name, code: existing.code });
+    res.json({ ok: true });
+  } catch (e) {
+    if (String(e.message).includes('FOREIGN KEY')) {
+      return res.status(409).json({ error: `"${existing.name}" zapchasti avvalgi terish tarixida ishlatilgan, shuning uchun to'liq o'chirib bo'lmaydi. Uni faqat modellar ro'yxatidan olib tashlashingiz mumkin (modelni tahrirlashda belgisini olib tashlang).` });
+    }
+    res.status(500).json({ error: 'Kutilmagan xatolik: ' + e.message });
+  }
 });
 
 module.exports = router;

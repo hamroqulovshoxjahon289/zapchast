@@ -12,6 +12,7 @@ db.exec(`
 CREATE TABLE IF NOT EXISTS categories (
   id INTEGER PRIMARY KEY AUTOINCREMENT,
   name TEXT NOT NULL,
+  active INTEGER DEFAULT 1,
   created_at TEXT DEFAULT (datetime('now', '+5 hours'))
 );
 
@@ -24,6 +25,7 @@ CREATE TABLE IF NOT EXISTS parts (
   has_quantity INTEGER DEFAULT 0,
   has_weight INTEGER DEFAULT 0,
   photo TEXT,
+  active INTEGER DEFAULT 1,
   created_at TEXT DEFAULT (datetime('now', '+5 hours')),
   updated_at TEXT DEFAULT (datetime('now', '+5 hours'))
 );
@@ -32,6 +34,7 @@ CREATE TABLE IF NOT EXISTS models (
   id INTEGER PRIMARY KEY AUTOINCREMENT,
   category_id INTEGER NOT NULL,
   name TEXT NOT NULL,
+  active INTEGER DEFAULT 1,
   created_at TEXT DEFAULT (datetime('now', '+5 hours')),
   FOREIGN KEY(category_id) REFERENCES categories(id) ON DELETE CASCADE
 );
@@ -43,6 +46,7 @@ CREATE TABLE IF NOT EXISTS model_parts (
   quantity REAL,
   weight REAL,
   length REAL,
+  active INTEGER DEFAULT 1,
   FOREIGN KEY(model_id) REFERENCES models(id) ON DELETE CASCADE,
   FOREIGN KEY(part_id) REFERENCES parts(id) ON DELETE CASCADE
 );
@@ -89,6 +93,18 @@ CREATE TABLE IF NOT EXISTS settings (
   value TEXT
 );
 `);
+
+// Eski bazalarga (ilgari yaratilgan) "active" ustunini qo'shib qo'yamiz, agar mavjud bo'lmasa
+function ensureColumn(table, column, def) {
+  const cols = db.prepare(`PRAGMA table_info(${table})`).all();
+  if (!cols.some(c => c.name === column)) {
+    db.exec(`ALTER TABLE ${table} ADD COLUMN ${column} ${def}`);
+  }
+}
+ensureColumn('categories', 'active', 'INTEGER DEFAULT 1');
+ensureColumn('parts', 'active', 'INTEGER DEFAULT 1');
+ensureColumn('models', 'active', 'INTEGER DEFAULT 1');
+ensureColumn('model_parts', 'active', 'INTEGER DEFAULT 1');
 
 const defaultPins = { create_pin: '1111', edit_pin: '2222', delete_pin: '3333' };
 const insertSetting = db.prepare('INSERT OR IGNORE INTO settings (key, value) VALUES (?,?)');
