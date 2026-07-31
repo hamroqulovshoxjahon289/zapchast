@@ -23,6 +23,8 @@ function renderNav(active) {
     ['models.html', 'Modellar'],
     ['workers.html', 'Ishchilar'],
     ['pick.html', 'Terish jarayoni'],
+    ['cargo-items.html', 'Yuk narsalari'],
+    ['loading.html', 'Yuklash jarayoni'],
     ['history.html', 'Tarix'],
     ['settings.html', 'Sozlamalar'],
   ];

@@ -3,7 +3,7 @@ const router = express.Router();
 const { db, logHistory, checkPin } = require('../db');
 
 router.get('/', (req, res) => {
-  const rows = db.prepare('SELECT * FROM categories ORDER BY name').all();
+  const rows = db.prepare('SELECT * FROM categories WHERE active=1 ORDER BY name').all();
   res.json(rows);
 });
 
@@ -27,9 +27,22 @@ router.put('/:id', (req, res) => {
 router.delete('/:id', (req, res) => {
   const { pin } = req.body;
   if (!checkPin('delete', pin)) return res.status(403).json({ error: 'O\'chirish kodi noto\'g\'ri' });
-  db.prepare('DELETE FROM categories WHERE id=?').run(req.params.id);
-  logHistory('delete', 'category', { id: req.params.id });
-  res.json({ ok: true });
+  const existing = db.prepare('SELECT * FROM categories WHERE id=?').get(req.params.id);
+  if (!existing) return res.status(404).json({ error: 'Topilmadi' });
+  try {
+    db.prepare('DELETE FROM categories WHERE id=?').run(req.params.id);
+    logHistory('delete', 'category', { id: req.params.id, name: existing.name });
+    res.json({ ok: true });
+  } catch (e) {
+    if (String(e.message).includes('FOREIGN KEY')) {
+      // Tarixda ishlatilgan modellari bo'lsa, kategoriyani va uning modellarini arxivlaymiz
+      db.prepare('UPDATE categories SET active=0 WHERE id=?').run(req.params.id);
+      db.prepare('UPDATE models SET active=0 WHERE category_id=?').run(req.params.id);
+      logHistory('archive', 'category', { id: req.params.id, name: existing.name, reason: 'tarixda ishlatilgan modellari bor' });
+      return res.json({ ok: true, archived: true });
+    }
+    res.status(500).json({ error: 'Kutilmagan xatolik: ' + e.message });
+  }
 });
 
 module.exports = router;

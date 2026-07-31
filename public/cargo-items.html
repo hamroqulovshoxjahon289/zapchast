@@ -1,0 +1,108 @@
+<!DOCTYPE html>
+<html lang="uz">
+<head>
+<meta charset="UTF-8">
+<script>(function(){var t=localStorage.getItem("theme")||"dark";document.documentElement.setAttribute("data-theme",t);})();</script>
+<title>Yuk narsalari</title>
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<link rel="icon" href="assets/logo.png">
+<link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+<div class="topbar">
+  <h1><img src="assets/logo.png" class="logo" alt="logo"> <span>Temurshox mebel</span></h1>
+  <div class="topbar-right"><div class="nav" id="nav"></div><button class="theme-toggle" id="themeToggle" onclick="toggleTheme()" title="Rejimni almashtirish">☀️</button></div>
+</div>
+<div class="container">
+  <div class="card" style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:10px;">
+    <div>
+      <h2 style="margin:0">🚚 Yuk narsalari</h2>
+      <p class="muted" style="margin:4px 0 0">Krisha, bakavoy, polka, xdf va h.k. — bularning har biriga QR-kod avtomatik yaratiladi. Keyinchalik har bir modelga qaysi narsalar kerakligini tanlaysiz.</p>
+    </div>
+    <button class="btn" onclick="openModal()">➕ Yangi narsa</button>
+  </div>
+
+  <div class="card">
+    <table>
+      <thead><tr><th>QR</th><th>Nomi</th><th>Kod</th><th></th></tr></thead>
+      <tbody id="rows"><tr><td colspan="4" class="muted">Yuklanmoqda...</td></tr></tbody>
+    </table>
+  </div>
+</div>
+
+<div class="modal-overlay" id="modalOverlay">
+  <div class="modal">
+    <h3 id="modalTitle">Yangi yuk narsasi</h3>
+    <form id="itemForm" onsubmit="return saveItem(event)">
+      <input type="hidden" id="itemId">
+      <label>Nomi</label>
+      <input id="iName" required placeholder="masalan: Krisha">
+      <div style="display:flex; gap:10px; margin-top:14px;">
+        <button type="submit" class="btn">Saqlash</button>
+        <button type="button" class="btn secondary" onclick="closeModal()">Bekor qilish</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<script src="js/common.js"></script>
+<script>
+renderNav('cargo-items.html');
+let items = [];
+
+async function load() {
+  items = await api('/api/cargo-items');
+  document.getElementById('rows').innerHTML = items.map(it => `
+    <tr>
+      <td><img class="thumb" src="https://api.qrserver.com/v1/create-qr-code/?size=80x80&data=${encodeURIComponent(it.barcode)}" title="${it.barcode}"></td>
+      <td>${it.name}</td>
+      <td class="muted">${it.barcode}</td>
+      <td style="white-space:nowrap">
+        <button class="btn secondary small" onclick="editItem(${it.id})">Tahrirlash</button>
+        <button class="btn danger small" onclick="delItem(${it.id})">O'chirish</button>
+      </td>
+    </tr>`).join('') || '<tr><td colspan="4" class="muted">Hali yuk narsasi yo\'q</td></tr>';
+}
+
+function openModal(item) {
+  document.getElementById('modalTitle').textContent = item ? 'Tahrirlash' : 'Yangi yuk narsasi';
+  document.getElementById('itemId').value = item ? item.id : '';
+  document.getElementById('iName').value = item ? item.name : '';
+  document.getElementById('modalOverlay').classList.add('show');
+}
+function closeModal() { document.getElementById('modalOverlay').classList.remove('show'); }
+function editItem(id) { openModal(items.find(i => i.id === id)); }
+
+async function saveItem(e) {
+  e.preventDefault();
+  const id = document.getElementById('itemId').value;
+  const name = document.getElementById('iName').value.trim();
+  if (!name) return false;
+  const type = id ? 'edit' : 'create';
+  await withPin(type, async (pin) => {
+    const body = JSON.stringify({ name, pin });
+    if (id) {
+      await api('/api/cargo-items/' + id, { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body });
+    } else {
+      await api('/api/cargo-items', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body });
+    }
+    toast('Saqlandi');
+    closeModal();
+    load();
+  });
+  return false;
+}
+
+async function delItem(id) {
+  if (!confirm('Ushbu yuk narsasini o\'chirishni tasdiqlaysizmi?')) return;
+  await withPin('delete', async (pin) => {
+    await api('/api/cargo-items/' + id, { method: 'DELETE', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ pin }) });
+    toast('O\'chirildi');
+    load();
+  });
+}
+
+load();
+</script>
+</body>
+</html>

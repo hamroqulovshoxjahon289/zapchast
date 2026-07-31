@@ -46,8 +46,16 @@ Kategoriya, zapchast va modellar bilan ishlashda 3 xil 4 xonali kod so'raladi:
 
 Bu kodlarni **"Sozlamalar"** sahifasidan o'zgartirish mumkin (o'zgartirish uchun joriy "Tahrirlash kodi" kiritilishi shart). Birinchi marta ishga tushirganda kodlarni albatta o'zingizga moslab o'zgartirib qo'ying.
 
-## Vaqt
-Barcha sana/vaqt Toshkent vaqti (UTC+5) bo'yicha ko'rsatiladi, serverning joylashuvidan qat'iy nazar.
+## Yuklash tizimi (Yuk kuzovga to'g'ri yuklanishini nazorat qilish)
+- **Yuk narsalari** bo'limida umumiy narsalar ro'yxati yuritiladi (krisha, bakavoy, polka, xdf va h.k.) — har biriga QR-kod avtomatik beriladi.
+- **Modellar** bo'limida har bir modelga qaysi yuk narsalari kerakligini tanlaysiz. Agar modelga zapchast biriktirilgan bo'lsa, yuklash ro'yxatiga "Zapchast" nomli qo'shimcha band avtomatik qo'shiladi (bu shu modelning zapchast qutisini anglatadi).
+- **Yuklash jarayoni** bo'limida kategoriya va modelni tanlab, "Yukni ortish" tugmasi bosiladi — barcha kerakli narsalar ro'yxati chiqadi.
+- Har bir narsani (krisha, bakavoy, polka, xdf, zapchast) QR-kodini skan qilish orqali (pult skaner yoki telefon kamerasi) ✅ deb belgilanadi.
+- Yuklashni yakunlaganda, skan qilinmagan narsalar aniq ko'rsatiladi: masalan "Polka yuklanmadi".
+- Har bir model uchun alohida QR-yorliqlarni "Modellar" bo'limidagi "🏷 Yorliqlar" tugmasi orqali chop etish mumkin.
+
+## Ma'lumotlar xavfsizligi (arxivlash)
+Agar biror zapchast, model yoki kategoriya avvalgi terish/yuklash tarixida ishlatilgan bo'lsa, uni o'chirishga urinilganda tizim uni to'liq o'chirmaydi (tarixiy hisobotlar buzilib qolmasligi uchun), balki **arxivlaydi** — ya'ni u faol ro'yxatlardan (tanlov, terish, yuklash) yo'qoladi, lekin eski hisobotlarda to'liq va to'g'ri ko'rinishda qolaveradi.
 
 
 - `server.js` — asosiy server

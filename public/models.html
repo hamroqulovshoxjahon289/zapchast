@@ -36,7 +36,10 @@
       <label>Model nomi</label>
       <input id="mName" required placeholder="masalan: Olma">
       <label>Ushbu modelga kerak bo'ladigan zapchastlar</label>
-      <div id="partsCheckList" style="max-height:340px; overflow-y:auto; border:1px solid var(--border); border-radius:8px; padding:10px;"></div>
+      <div id="partsCheckList" style="max-height:260px; overflow-y:auto; border:1px solid var(--border); border-radius:8px; padding:10px;"></div>
+      <label style="margin-top:14px">Ushbu modelni yuklashda kerak bo'ladigan narsalar (krisha, bakavoy, polka va h.k.)</label>
+      <div id="cargoCheckList" style="max-height:200px; overflow-y:auto; border:1px solid var(--border); border-radius:8px; padding:10px;"></div>
+      <p class="muted" style="margin-top:8px">Eslatma: agar yuqorida zapchast tanlangan bo'lsa, yuklash ro'yxatiga "Zapchast" nomli qo'shimcha band avtomatik qo'shiladi.</p>
       <div style="display:flex; gap:10px; margin-top:14px;">
         <button type="submit" class="btn">Saqlash</button>
         <button type="button" class="btn secondary" onclick="closeModal()">Bekor qilish</button>
@@ -48,10 +51,10 @@
 <script src="js/common.js"></script>
 <script>
 renderNav('models.html');
-let categories = [], parts = [], models = [];
+let categories = [], parts = [], models = [], cargoItems = [];
 
 async function loadAll() {
-  [categories, parts, models] = await Promise.all([api('/api/categories'), api('/api/parts'), api('/api/models')]);
+  [categories, parts, models, cargoItems] = await Promise.all([api('/api/categories'), api('/api/parts'), api('/api/models'), api('/api/cargo-items')]);
   const catSelect = document.getElementById('filterCategory');
   catSelect.innerHTML = '<option value="">— Barchasi —</option>' + categories.map(c => `<option value="${c.id}">${c.name}</option>`).join('');
   document.getElementById('mCategory').innerHTML = categories.map(c => `<option value="${c.id}">${c.name}</option>`).join('');
@@ -67,11 +70,14 @@ function renderTree() {
     const catModels = models.filter(m => m.category_id === c.id);
     return `<div style="margin-top:16px">
       <h3 style="color:var(--accent2); margin-bottom:6px">${c.name}</h3>
-      ${catModels.length ? `<table><thead><tr><th>Model</th><th>Zapchastlar soni</th><th></th></tr></thead><tbody>
+      ${catModels.length ? `<table><thead><tr><th>Model</th><th>Zapchastlar soni</th><th>Yuk narsalari</th><th></th></tr></thead><tbody>
         ${catModels.map(m => `<tr>
           <td>${m.name}</td>
           <td class="muted" id="pc-${m.id}">—</td>
-          <td><button class="btn secondary small" onclick="editModel(${m.id})">Tahrirlash</button>
+          <td class="muted" id="cc-${m.id}">—</td>
+          <td style="white-space:nowrap">
+          <button class="btn secondary small" onclick="editModel(${m.id})">Tahrirlash</button>
+          <a class="btn secondary small" href="cargo-labels.html?model=${m.id}" target="_blank">🏷 Yorliqlar</a>
           <button class="btn danger small" onclick="delModel(${m.id})">O'chirish</button></td>
         </tr>`).join('')}
       </tbody></table>` : '<p class="muted">Model yo\'q</p>'}
@@ -87,6 +93,8 @@ async function catModelsCountFetch(cats) {
       const full = await api('/api/models/' + m.id);
       const el = document.getElementById('pc-' + m.id);
       if (el) el.textContent = full.parts.length + ' ta';
+      const cel = document.getElementById('cc-' + m.id);
+      if (cel) cel.textContent = full.cargo_items.length + ' ta';
     }
   }
 }
@@ -114,12 +122,27 @@ function toggleExtra(id) {
   document.getElementById('extra-' + id).style.display = checked ? 'flex' : 'none';
 }
 
+function renderCargoCheckList(selectedIds = []) {
+  const container = document.getElementById('cargoCheckList');
+  if (!cargoItems.length) {
+    container.innerHTML = '<p class="muted" style="margin:0">Hali yuk narsasi yo\'q. Avval "Yuk narsalari" bo\'limidan qo\'shing.</p>';
+    return;
+  }
+  container.innerHTML = cargoItems.map(ci => `
+    <div class="checkbox-row">
+      <input type="checkbox" id="cargo-chk-${ci.id}" ${selectedIds.includes(ci.id) ? 'checked' : ''}>
+      <label style="margin:0">${ci.name}</label>
+    </div>
+  `).join('');
+}
+
 function openModal() {
   document.getElementById('modalTitle').textContent = 'Yangi model';
   document.getElementById('modelId').value = '';
   document.getElementById('mName').value = '';
   document.getElementById('mCategory').value = categories[0]?.id || '';
   renderPartsCheckList({});
+  renderCargoCheckList([]);
   document.getElementById('modalOverlay').classList.add('show');
 }
 
@@ -136,6 +159,7 @@ async function editModel(id) {
   const selected = {};
   full.parts.forEach(p => selected[p.part_id] = p);
   renderPartsCheckList(selected);
+  renderCargoCheckList(full.cargo_items.map(ci => ci.cargo_item_id));
   document.getElementById('modalOverlay').classList.add('show');
 }
 
@@ -150,9 +174,10 @@ async function saveModel(e) {
     weight: p.has_weight ? (parseFloat(document.getElementById('wt-' + p.id).value) || null) : null,
     length: p.has_length ? (parseFloat(document.getElementById('len-' + p.id).value) || null) : null,
   }));
+  const cargo_item_ids = cargoItems.filter(ci => document.getElementById('cargo-chk-' + ci.id)?.checked).map(ci => ci.id);
   const type = id ? 'edit' : 'create';
   await withPin(type, async (pin) => {
-    const body = JSON.stringify({ category_id, name, parts: selectedParts, pin });
+    const body = JSON.stringify({ category_id, name, parts: selectedParts, cargo_item_ids, pin });
     if (id) {
       await api('/api/models/' + id, { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body });
     } else {

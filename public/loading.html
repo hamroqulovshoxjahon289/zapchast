@@ -1,0 +1,163 @@
+<!DOCTYPE html>
+<html lang="uz">
+<head>
+<meta charset="UTF-8">
+<script>(function(){var t=localStorage.getItem("theme")||"dark";document.documentElement.setAttribute("data-theme",t);})();</script>
+<title>Yuklash jarayoni</title>
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<link rel="icon" href="assets/logo.png">
+<link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+<div class="topbar">
+  <h1><img src="assets/logo.png" class="logo" alt="logo"> <span>Temurshox mebel</span></h1>
+  <div class="topbar-right"><div class="nav" id="nav"></div><button class="theme-toggle" id="themeToggle" onclick="toggleTheme()" title="Rejimni almashtirish">☀️</button></div>
+</div>
+<div class="container">
+
+  <div class="card" id="setupCard">
+    <h2>🚚 Yangi yuklashni boshlash</h2>
+    <div class="grid cols-2">
+      <div>
+        <label>Kategoriya</label>
+        <select id="wCategory" onchange="loadModels()"></select>
+      </div>
+      <div>
+        <label>Model</label>
+        <select id="wModel"></select>
+      </div>
+    </div>
+    <button class="btn" onclick="startSession()">Yukni ortish</button>
+  </div>
+
+  <div class="card" id="sessionCard" style="display:none">
+    <div style="display:flex; justify-content:space-between; align-items:flex-start; flex-wrap:wrap; gap:10px;">
+      <div>
+        <h2 style="margin:0" id="sessionTitle"></h2>
+        <p class="muted">Har bir narsaning QR-kodini skan qiling</p>
+      </div>
+      <div style="text-align:right">
+        <button class="btn secondary small" onclick="showPhoneLink()">📱 Telefon orqali skan</button>
+      </div>
+    </div>
+
+    <div style="margin:16px 0">
+      <label>Skaner uchun (skaner qurilma bilan skan qiling — kursor shu yerda bo'lsin)</label>
+      <input id="scanInput" placeholder="QR/shtrix-kodni skan qiling yoki kod kiriting va Enter bosing" autofocus>
+    </div>
+
+    <div id="itemsList"></div>
+
+    <div style="margin-top:20px; display:flex; gap:10px;">
+      <button class="btn" onclick="finishSession()">✅ Yuklashni yakunlash</button>
+      <button class="btn secondary" onclick="location.reload()">Bekor qilish</button>
+    </div>
+  </div>
+
+  <div class="card" id="resultCard" style="display:none">
+    <h2 id="resultTitle"></h2>
+    <div id="resultBody"></div>
+    <button class="btn" onclick="location.reload()" style="margin-top:14px">Yangi yuklash</button>
+  </div>
+
+</div>
+
+<div class="modal-overlay" id="phoneModal">
+  <div class="modal" style="text-align:center">
+    <h3>📱 Telefon orqali skan qilish</h3>
+    <p class="muted">Ushbu havolani telefon brauzerida oching va kamera orqali QR-kodlarni skan qiling. Natijalar shu sahifada avtomatik yangilanadi.</p>
+    <p id="phoneUrl" style="word-break:break-all; background:var(--panel2); padding:10px; border-radius:8px;"></p>
+    <img id="qrImg" style="margin-top:10px; border-radius:8px;">
+    <div style="margin-top:16px">
+      <button class="btn secondary" onclick="document.getElementById('phoneModal').classList.remove('show')">Yopish</button>
+    </div>
+  </div>
+</div>
+
+<script src="/socket.io/socket.io.js"></script>
+<script src="js/common.js"></script>
+<script>
+renderNav('loading.html');
+let categories = [], models = [], currentSession = null, socket = null;
+
+async function init() {
+  [categories, models] = await Promise.all([api('/api/categories'), api('/api/models')]);
+  document.getElementById('wCategory').innerHTML = categories.map(c => `<option value="${c.id}">${c.name}</option>`).join('') || '<option disabled>Avval kategoriya qo\'shing</option>';
+  loadModels();
+}
+
+function loadModels() {
+  const catId = document.getElementById('wCategory').value;
+  const ms = models.filter(m => String(m.category_id) === catId);
+  document.getElementById('wModel').innerHTML = ms.map(m => `<option value="${m.id}">${m.name}</option>`).join('') || '<option disabled>Bu kategoriyada model yo\'q</option>';
+}
+
+async function startSession() {
+  const model_id = document.getElementById('wModel').value;
+  if (!model_id) return toast('Modelni tanlang');
+  const { id } = await api('/api/loading/sessions', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ model_id }) });
+  currentSession = id;
+  document.getElementById('setupCard').style.display = 'none';
+  document.getElementById('sessionCard').style.display = 'block';
+  socket = io();
+  socket.emit('join_loading', id);
+  socket.on('loading_item_updated', () => loadSession());
+  await loadSession();
+  document.getElementById('scanInput').focus();
+
+  document.getElementById('scanInput').addEventListener('keydown', async (e) => {
+    if (e.key === 'Enter') {
+      const val = e.target.value.trim();
+      e.target.value = '';
+      if (!val) return;
+      try {
+        await api(`/api/loading/sessions/${currentSession}/scan`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ barcode: val }) });
+        loadSession();
+      } catch (err) {
+        toast(err.message);
+      }
+    }
+  });
+}
+
+async function loadSession() {
+  const s = await api('/api/loading/sessions/' + currentSession);
+  document.getElementById('sessionTitle').textContent = `${s.category_name} > ${s.model_name}`;
+  document.getElementById('itemsList').innerHTML = s.items.map(it => {
+    const icon = it.status === 'scanned' ? '✅' : '⏳';
+    const label = it.item_type === 'zapchast' ? `${it.name} (shu modelning zapchast qutisi)` : it.name;
+    return `<div class="pick-item ${it.status}">
+      <div class="info">
+        <strong>${label}</strong>
+        ${it.status === 'pending' ? `<span class="badge bad" style="margin-left:8px;">Hali yuklanmadi</span>` : `<span class="badge ok" style="margin-left:8px;">Yuklandi</span>`}
+      </div>
+      <div class="status-icon">${icon}</div>
+    </div>`;
+  }).join('');
+}
+
+function showPhoneLink() {
+  const url = `${location.origin}/loading-scan-mobile.html?session=${currentSession}`;
+  document.getElementById('phoneUrl').textContent = url;
+  document.getElementById('qrImg').src = `https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=${encodeURIComponent(url)}`;
+  document.getElementById('phoneModal').classList.add('show');
+}
+
+async function finishSession() {
+  if (!confirm('Yuklashni yakunlaysizmi? Hali skan qilinmagan narsalar "yuklanmadi" deb belgilanadi.')) return;
+  const r = await api(`/api/loading/sessions/${currentSession}/finish`, { method: 'POST' });
+  document.getElementById('sessionCard').style.display = 'none';
+  document.getElementById('resultCard').style.display = 'block';
+  if (r.missing && r.missing.length) {
+    document.getElementById('resultTitle').textContent = '⚠️ Yuklash yakunlandi — ba\'zi narsalar yuklanmadi';
+    document.getElementById('resultBody').innerHTML = r.missing.map(name => `<p style="color:var(--bad); font-weight:700; margin:6px 0;">❌ ${name} yuklanmadi</p>`).join('');
+  } else {
+    document.getElementById('resultTitle').textContent = '✅ Yuklash to\'liq yakunlandi';
+    document.getElementById('resultBody').innerHTML = '<p class="muted">Barcha narsalar muvaffaqiyatli yuklandi.</p>';
+  }
+}
+
+init();
+</script>
+</body>
+</html>

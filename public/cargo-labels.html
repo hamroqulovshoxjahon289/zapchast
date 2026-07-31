@@ -1,0 +1,60 @@
+<!DOCTYPE html>
+<html lang="uz">
+<head>
+<meta charset="UTF-8">
+<script>(function(){var t=localStorage.getItem("theme")||"dark";document.documentElement.setAttribute("data-theme",t);})();</script>
+<title>Model yorliqlari</title>
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<link rel="icon" href="assets/logo.png">
+<link rel="stylesheet" href="css/style.css">
+<style>
+  .labels-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; }
+  .label-card {
+    border: 1px dashed #999; border-radius: 8px; padding: 12px;
+    text-align: center; background: white; color: black; break-inside: avoid;
+  }
+  .label-card img { width: 130px; height: 130px; }
+  .label-card .lname { font-weight: 700; font-size: 14px; margin-top: 6px; }
+  .label-card .lmodel { font-size: 11px; color: #555; }
+  @media print { .labels-grid { grid-template-columns: repeat(3, 1fr); } }
+</style>
+</head>
+<body>
+<div class="topbar no-print">
+  <h1><img src="assets/logo.png" class="logo" alt="logo"> <span>Temurshox mebel</span></h1>
+  <div class="topbar-right"><div class="nav" id="nav"></div><button class="theme-toggle no-print" id="themeToggle" onclick="toggleTheme()" title="Rejimni almashtirish">☀️</button></div>
+</div>
+<div class="container">
+  <div class="card no-print">
+    <h2 id="pageTitle">🏷 Model yorliqlari</h2>
+    <p class="muted">Ushbu modelni yuklashda kerak bo'ladigan har bir narsaning QR-kodi. Kesib olib, jismoniy narsalarga yoki quti/paketlarga yopishtiring.</p>
+    <button class="btn" onclick="window.print()">🖨 Chop etish</button>
+  </div>
+  <div class="labels-grid" id="labelsGrid">Yuklanmoqda...</div>
+</div>
+
+<script src="js/common.js"></script>
+<script>
+renderNav('models.html');
+const modelId = new URLSearchParams(location.search).get('model');
+
+async function load() {
+  if (!modelId) { document.getElementById('labelsGrid').innerHTML = '<p class="muted">Model tanlanmadi</p>'; return; }
+  const m = await api('/api/models/' + modelId);
+  document.getElementById('pageTitle').textContent = `🏷 ${m.name} — yuklash yorliqlari`;
+  const labels = [];
+  m.cargo_items.forEach(ci => labels.push({ name: ci.cargo_name, barcode: ci.barcode }));
+  if (m.has_zapchast) labels.push({ name: 'Zapchast', barcode: 'ZP' + String(m.id).padStart(6, '0') });
+
+  document.getElementById('labelsGrid').innerHTML = labels.map(l => `
+    <div class="label-card">
+      <img src="https://api.qrserver.com/v1/create-qr-code/?size=150x150&data=${encodeURIComponent(l.barcode)}">
+      <div class="lname">${l.name}</div>
+      <div class="lmodel">${m.name}</div>
+    </div>
+  `).join('') || '<p class="muted">Bu modelga hali yuk narsasi yoki zapchast biriktirilmagan</p>';
+}
+load();
+</script>
+</body>
+</html>

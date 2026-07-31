@@ -26,15 +26,15 @@
 <script src="js/common.js"></script>
 <script>
 renderNav('history.html');
-const actionMap = { create: 'Qo\'shildi', update: 'Tahrirlandi', delete: 'O\'chirildi', start: 'Boshlandi', finish: 'Yakunlandi' };
-const entityMap = { category: 'Kategoriya', part: 'Zapchast', model: 'Model', worker: 'Ishchi', session: 'Terish sessiyasi' };
+const actionMap = { create: 'Qo\'shildi', update: 'Tahrirlandi', delete: 'O\'chirildi', archive: 'Arxivlandi', start: 'Boshlandi', finish: 'Yakunlandi' };
+const entityMap = { category: 'Kategoriya', part: 'Zapchast', model: 'Model', worker: 'Ishchi', session: 'Terish sessiyasi', cargo_item: 'Yuk narsasi', loading_session: 'Yuklash sessiyasi', settings: 'Sozlamalar' };
 
 async function load() {
   const rows = await api('/api/history');
   document.getElementById('rows').innerHTML = rows.map(r => `
     <tr>
       <td>${fmtDate(r.created_at)}</td>
-      <td><span class="badge ${r.action === 'delete' ? 'bad' : r.action === 'create' ? 'ok' : 'pending'}">${actionMap[r.action] || r.action}</span></td>
+      <td><span class="badge ${r.action === 'delete' ? 'bad' : r.action === 'archive' ? 'info' : r.action === 'create' ? 'ok' : 'pending'}">${actionMap[r.action] || r.action}</span></td>
       <td>${entityMap[r.entity] || r.entity}</td>
       <td class="muted">${r.details || ''}</td>
     </tr>`).join('') || '<tr><td colspan="4" class="muted">Tarix bo\'sh</td></tr>';

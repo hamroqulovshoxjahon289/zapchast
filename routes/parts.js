@@ -57,7 +57,7 @@ router.get('/next-code', (req, res) => {
 });
 
 router.get('/', (req, res) => {
-  const rows = db.prepare('SELECT * FROM parts ORDER BY name').all();
+  const rows = db.prepare('SELECT * FROM parts WHERE active=1 ORDER BY name').all();
   res.json(rows);
 });
 
@@ -123,7 +123,9 @@ router.delete('/:id', (req, res) => {
     res.json({ ok: true });
   } catch (e) {
     if (String(e.message).includes('FOREIGN KEY')) {
-      return res.status(409).json({ error: `"${existing.name}" zapchasti avvalgi terish tarixida ishlatilgan, shuning uchun to'liq o'chirib bo'lmaydi. Uni faqat modellar ro'yxatidan olib tashlashingiz mumkin (modelni tahrirlashda belgisini olib tashlang).` });
+      db.prepare('UPDATE parts SET active=0 WHERE id=?').run(req.params.id);
+      logHistory('archive', 'part', { id: req.params.id, name: existing.name, code: existing.code, reason: 'terish tarixida ishlatilgan' });
+      return res.json({ ok: true, archived: true });
     }
     res.status(500).json({ error: 'Kutilmagan xatolik: ' + e.message });
   }

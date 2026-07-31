@@ -92,6 +92,47 @@ CREATE TABLE IF NOT EXISTS settings (
   key TEXT PRIMARY KEY,
   value TEXT
 );
+
+-- ==== YUK (kuzovga ortish) tizimi ====
+-- Umumiy yuk narsalari ro'yxati (krisha, bakavoy, polka, xdf va h.k.), har birida avtomatik QR/shtrix-kod
+CREATE TABLE IF NOT EXISTS cargo_items (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  name TEXT NOT NULL,
+  barcode TEXT UNIQUE,
+  active INTEGER DEFAULT 1,
+  created_at TEXT DEFAULT (datetime('now', '+5 hours'))
+);
+
+-- Har bir modelga qaysi yuk narsalari kerakligi (krisha, bakavoy, polka, xdf tanlovi)
+CREATE TABLE IF NOT EXISTS model_cargo_items (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  model_id INTEGER NOT NULL,
+  cargo_item_id INTEGER NOT NULL,
+  active INTEGER DEFAULT 1,
+  FOREIGN KEY(model_id) REFERENCES models(id) ON DELETE CASCADE,
+  FOREIGN KEY(cargo_item_id) REFERENCES cargo_items(id) ON DELETE CASCADE
+);
+
+CREATE TABLE IF NOT EXISTS loading_sessions (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  model_id INTEGER NOT NULL,
+  status TEXT DEFAULT 'active',
+  created_at TEXT DEFAULT (datetime('now', '+5 hours')),
+  finished_at TEXT,
+  FOREIGN KEY(model_id) REFERENCES models(id)
+);
+
+-- item_type: 'cargo' (krisha/bakavoy/polka/xdf...) yoki 'zapchast' (shu modelning zapchast qutisi)
+CREATE TABLE IF NOT EXISTS loading_items (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  loading_session_id INTEGER NOT NULL,
+  item_type TEXT NOT NULL,
+  name TEXT NOT NULL,
+  barcode TEXT,
+  status TEXT DEFAULT 'pending', -- pending | scanned
+  scanned_at TEXT,
+  FOREIGN KEY(loading_session_id) REFERENCES loading_sessions(id) ON DELETE CASCADE
+);
 `);
 
 // Eski bazalarga (ilgari yaratilgan) "active" ustunini qo'shib qo'yamiz, agar mavjud bo'lmasa
