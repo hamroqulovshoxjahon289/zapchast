@@ -264,6 +264,29 @@ tr:hover { background: var(--panel2); }
 .checkbox-row { display: flex; align-items: center; gap: 10px; margin-bottom: 12px; }
 .checkbox-row input { width: auto; margin: 0; accent-color: var(--accent); }
 
+.parts-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+  max-height: 48vh;
+  overflow-y: auto;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 10px;
+  background: var(--panel2);
+}
+.parts-grid-item {
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 8px 10px;
+}
+.parts-grid-item .extra-row { display: flex; gap: 6px; margin-top: 6px; margin-left: 24px; }
+.parts-grid-item .extra-row input { margin: 0; padding: 6px 8px; font-size: 12.5px; }
+@media (max-width: 700px) {
+  .parts-grid { grid-template-columns: 1fr; }
+}
+
 .pick-item {
   display: flex;
   align-items: center;

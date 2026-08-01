@@ -27,18 +27,25 @@
 </div>
 
 <div class="modal-overlay" id="modalOverlay">
-  <div class="modal" style="max-width:680px">
+  <div class="modal" style="max-width:960px; width:95vw;">
     <h3 id="modalTitle">Yangi model</h3>
     <form onsubmit="return saveModel(event)">
       <input type="hidden" id="modelId">
-      <label>Kategoriya</label>
-      <select id="mCategory" required></select>
-      <label>Model nomi</label>
-      <input id="mName" required placeholder="masalan: Olma">
-      <label>Ushbu modelga kerak bo'ladigan zapchastlar</label>
-      <div id="partsCheckList" style="max-height:260px; overflow-y:auto; border:1px solid var(--border); border-radius:8px; padding:10px;"></div>
+      <div class="grid cols-2">
+        <div>
+          <label>Kategoriya</label>
+          <select id="mCategory" required></select>
+        </div>
+        <div>
+          <label>Model nomi</label>
+          <input id="mName" required placeholder="masalan: Olma">
+        </div>
+      </div>
+      <label>Ushbu modelga kerak bo'ladigan zapchastlar <span class="muted" id="partsSelectedCount" style="text-transform:none; font-weight:400;"></span></label>
+      <input id="partsSearch" placeholder="🔍 Zapchast nomi yoki kodi bo'yicha qidirish..." oninput="renderPartsCheckList()" style="margin-bottom:8px">
+      <div id="partsCheckList" class="parts-grid"></div>
       <label style="margin-top:14px">Ushbu modelni yuklashda kerak bo'ladigan narsalar (krisha, bakavoy, polka va h.k.)</label>
-      <div id="cargoCheckList" style="max-height:200px; overflow-y:auto; border:1px solid var(--border); border-radius:8px; padding:10px;"></div>
+      <div id="cargoCheckList" class="parts-grid" style="max-height:180px;"></div>
       <p class="muted" style="margin-top:8px">Eslatma: agar yuqorida zapchast tanlangan bo'lsa, yuklash ro'yxatiga "Zapchast" nomli qo'shimcha band avtomatik qo'shiladi.</p>
       <div style="display:flex; gap:10px; margin-top:14px;">
         <button type="submit" class="btn">Saqlash</button>
@@ -99,27 +106,46 @@ async function catModelsCountFetch(cats) {
   }
 }
 
-function renderPartsCheckList(selected = {}) {
+let partsState = {}; // { [part_id]: { checked, quantity, weight, length } }
+
+function renderPartsCheckList() {
   const container = document.getElementById('partsCheckList');
-  container.innerHTML = parts.map(p => {
-    const sel = selected[p.id];
-    return `<div style="padding:8px; border-bottom:1px solid var(--border)">
-      <div class="checkbox-row">
-        <input type="checkbox" id="chk-${p.id}" ${sel ? 'checked' : ''} onchange="toggleExtra(${p.id})">
+  const q = (document.getElementById('partsSearch').value || '').toLowerCase().trim();
+  const filtered = parts.filter(p => !q || p.name.toLowerCase().includes(q) || (p.code || '').includes(q));
+
+  container.innerHTML = filtered.map(p => {
+    const st = partsState[p.id] || {};
+    return `<div class="parts-grid-item">
+      <div class="checkbox-row" style="margin-bottom:0">
+        <input type="checkbox" id="chk-${p.id}" ${st.checked ? 'checked' : ''} onchange="onPartToggle(${p.id})">
         <label style="margin:0"><strong>${p.name}</strong> <span class="muted">(${p.code})</span></label>
       </div>
-      <div id="extra-${p.id}" style="display:${sel ? 'flex' : 'none'}; gap:8px; margin-left:26px;">
-        ${p.has_quantity ? `<input type="number" step="any" placeholder="Soni" id="qty-${p.id}" value="${sel ? (sel.quantity ?? '') : ''}" style="margin:0">` : ''}
-        ${p.has_weight ? `<input type="number" step="any" placeholder="Grammi" id="wt-${p.id}" value="${sel ? (sel.weight ?? '') : ''}" style="margin:0">` : ''}
-        ${p.has_length ? `<input type="number" step="any" placeholder="Uzunligi" id="len-${p.id}" value="${sel ? (sel.length ?? '') : ''}" style="margin:0">` : ''}
+      <div id="extra-${p.id}" class="extra-row" style="display:${st.checked ? 'flex' : 'none'}">
+        ${p.has_quantity ? `<input type="number" step="any" placeholder="Soni" value="${st.quantity ?? ''}" oninput="onPartExtra(${p.id},'quantity',this.value)">` : ''}
+        ${p.has_weight ? `<input type="number" step="any" placeholder="Grammi" value="${st.weight ?? ''}" oninput="onPartExtra(${p.id},'weight',this.value)">` : ''}
+        ${p.has_length ? `<input type="number" step="any" placeholder="Uzunligi" value="${st.length ?? ''}" oninput="onPartExtra(${p.id},'length',this.value)">` : ''}
       </div>
     </div>`;
-  }).join('');
+  }).join('') || '<p class="muted" style="grid-column:1/-1; margin:0">Hech narsa topilmadi</p>';
+
+  updatePartsSelectedCount();
 }
 
-function toggleExtra(id) {
+function onPartToggle(id) {
   const checked = document.getElementById('chk-' + id).checked;
+  partsState[id] = { ...(partsState[id] || {}), checked };
   document.getElementById('extra-' + id).style.display = checked ? 'flex' : 'none';
+  updatePartsSelectedCount();
+}
+
+function onPartExtra(id, field, value) {
+  partsState[id] = { ...(partsState[id] || {}), [field]: value };
+}
+
+function updatePartsSelectedCount() {
+  const n = Object.values(partsState).filter(s => s.checked).length;
+  const el = document.getElementById('partsSelectedCount');
+  if (el) el.textContent = n ? `(${n} ta tanlandi)` : '';
 }
 
 function renderCargoCheckList(selectedIds = []) {
@@ -141,7 +167,9 @@ function openModal() {
   document.getElementById('modelId').value = '';
   document.getElementById('mName').value = '';
   document.getElementById('mCategory').value = categories[0]?.id || '';
-  renderPartsCheckList({});
+  document.getElementById('partsSearch').value = '';
+  partsState = {};
+  renderPartsCheckList();
   renderCargoCheckList([]);
   document.getElementById('modalOverlay').classList.add('show');
 }
@@ -156,9 +184,12 @@ async function editModel(id) {
   document.getElementById('modelId').value = full.id;
   document.getElementById('mName').value = full.name;
   document.getElementById('mCategory').value = full.category_id;
-  const selected = {};
-  full.parts.forEach(p => selected[p.part_id] = p);
-  renderPartsCheckList(selected);
+  document.getElementById('partsSearch').value = '';
+  partsState = {};
+  full.parts.forEach(p => {
+    partsState[p.part_id] = { checked: true, quantity: p.quantity, weight: p.weight, length: p.length };
+  });
+  renderPartsCheckList();
   renderCargoCheckList(full.cargo_items.map(ci => ci.cargo_item_id));
   document.getElementById('modalOverlay').classList.add('show');
 }
@@ -168,12 +199,15 @@ async function saveModel(e) {
   const id = document.getElementById('modelId').value;
   const category_id = document.getElementById('mCategory').value;
   const name = document.getElementById('mName').value;
-  const selectedParts = parts.filter(p => document.getElementById('chk-' + p.id)?.checked).map(p => ({
-    part_id: p.id,
-    quantity: p.has_quantity ? (parseFloat(document.getElementById('qty-' + p.id).value) || null) : null,
-    weight: p.has_weight ? (parseFloat(document.getElementById('wt-' + p.id).value) || null) : null,
-    length: p.has_length ? (parseFloat(document.getElementById('len-' + p.id).value) || null) : null,
-  }));
+  const selectedParts = Object.entries(partsState).filter(([, s]) => s.checked).map(([partId, s]) => {
+    const p = parts.find(pp => String(pp.id) === String(partId));
+    return {
+      part_id: partId,
+      quantity: p && p.has_quantity ? (parseFloat(s.quantity) || null) : null,
+      weight: p && p.has_weight ? (parseFloat(s.weight) || null) : null,
+      length: p && p.has_length ? (parseFloat(s.length) || null) : null,
+    };
+  });
   const cargo_item_ids = cargoItems.filter(ci => document.getElementById('cargo-chk-' + ci.id)?.checked).map(ci => ci.id);
   const type = id ? 'edit' : 'create';
   await withPin(type, async (pin) => {
