@@ -133,6 +133,29 @@ CREATE TABLE IF NOT EXISTS loading_items (
   scanned_at TEXT,
   FOREIGN KEY(loading_session_id) REFERENCES loading_sessions(id) ON DELETE CASCADE
 );
+
+-- ==== OMBOR (firma ehtiyoji uchun umumiy zapchastlar, modelga bog'liq emas) ====
+-- Masalan F25 kabi narsalar — har kim kelib QR-kodini skan qilsa, ombordan avtomatik 1 tasi ayriladi
+CREATE TABLE IF NOT EXISTS warehouse_items (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  name TEXT NOT NULL,
+  code TEXT UNIQUE NOT NULL,
+  barcode TEXT UNIQUE,
+  stock REAL DEFAULT 0,
+  min_threshold REAL DEFAULT 0,
+  active INTEGER DEFAULT 1,
+  created_at TEXT DEFAULT (datetime('now', '+5 hours'))
+);
+
+CREATE TABLE IF NOT EXISTS warehouse_log (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  warehouse_item_id INTEGER NOT NULL,
+  change_amount REAL NOT NULL,
+  type TEXT NOT NULL, -- kirim | chiqim
+  note TEXT,
+  created_at TEXT DEFAULT (datetime('now', '+5 hours')),
+  FOREIGN KEY(warehouse_item_id) REFERENCES warehouse_items(id) ON DELETE CASCADE
+);
 `);
 
 // Eski bazalarga (ilgari yaratilgan) "active" ustunini qo'shib qo'yamiz, agar mavjud bo'lmasa

@@ -15,7 +15,10 @@
 </div>
 <div class="container">
   <div class="card">
-    <h2>🕓 Amallar tarixi</h2>
+    <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:10px;">
+      <h2 style="margin:0">🕓 Amallar tarixi</h2>
+      <a href="/api/export/history.xlsx" class="btn secondary small">📥 Excelga yuklab olish</a>
+    </div>
     <table>
       <thead><tr><th>Sana</th><th>Amal</th><th>Nima</th><th>Tafsilot</th></tr></thead>
       <tbody id="rows"><tr><td colspan="4" class="muted">Yuklanmoqda...</td></tr></tbody>
@@ -26,8 +29,8 @@
 <script src="js/common.js"></script>
 <script>
 renderNav('history.html');
-const actionMap = { create: 'Qo\'shildi', update: 'Tahrirlandi', delete: 'O\'chirildi', archive: 'Arxivlandi', start: 'Boshlandi', finish: 'Yakunlandi' };
-const entityMap = { category: 'Kategoriya', part: 'Zapchast', model: 'Model', worker: 'Ishchi', session: 'Terish sessiyasi', cargo_item: 'Yuk narsasi', loading_session: 'Yuklash sessiyasi', settings: 'Sozlamalar' };
+const actionMap = { create: 'Qo\'shildi', update: 'Tahrirlandi', delete: 'O\'chirildi', archive: 'Arxivlandi', start: 'Boshlandi', finish: 'Yakunlandi', stock_in: 'Kirim', stock_out: 'Chiqim (olindi)' };
+const entityMap = { category: 'Kategoriya', part: 'Zapchast', model: 'Model', worker: 'Ishchi', session: 'Terish sessiyasi', cargo_item: 'Yuk narsasi', loading_session: 'Yuklash sessiyasi', settings: 'Sozlamalar', warehouse_item: 'Ombor zapchasti' };
 
 async function load() {
   const rows = await api('/api/history');

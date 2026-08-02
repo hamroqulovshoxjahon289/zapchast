@@ -1,0 +1,122 @@
+<!DOCTYPE html>
+<html lang="uz">
+<head>
+<meta charset="UTF-8">
+<script>(function(){var t=localStorage.getItem("theme")||"dark";document.documentElement.setAttribute("data-theme",t);})();</script>
+<title>Ombordan olish</title>
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<link rel="icon" href="assets/logo.png">
+<link rel="stylesheet" href="css/style.css">
+<script src="https://unpkg.com/html5-qrcode@2.3.8/html5-qrcode.min.js"></script>
+</head>
+<body>
+<div class="topbar">
+  <h1><img src="assets/logo.png" class="logo" alt="logo"> <span>Temurshox mebel</span></h1>
+  <button class="theme-toggle" id="themeToggle" onclick="toggleTheme()" title="Rejimni almashtirish">☀️</button>
+</div>
+<div class="container" style="max-width:560px">
+  <div class="card">
+    <h2>📦 Ombordan zapchast olish</h2>
+    <p class="muted">Kerakli zapchastning QR-kodini skan qiling — miqdor avtomatik kamayadi. Parol kerak emas.</p>
+    <label>Necha dona olyapsiz?</label>
+    <input id="qty" type="number" value="1" min="1" step="any">
+    <label>Skaner uchun (pult bilan skan qiling yoki kodni qo'lda kiriting)</label>
+    <input id="scanInput" placeholder="QR/shtrix-kodni skan qiling va Enter bosing" autofocus>
+    <button class="btn secondary" onclick="toggleCamera()" style="margin-top:6px" id="cameraBtn">📷 Kamera bilan skan qilish</button>
+    <div id="reader" style="width:100%; margin-top:10px; display:none"></div>
+  </div>
+
+  <div class="card" id="resultCard" style="display:none; text-align:center;">
+    <div id="resultIcon" style="font-size:48px"></div>
+    <h2 id="resultText" style="margin:8px 0"></h2>
+    <p class="muted" id="resultSub"></p>
+  </div>
+
+  <div class="card">
+    <h2>Oxirgi harakatlar</h2>
+    <div id="log"></div>
+  </div>
+</div>
+
+<script src="js/common.js"></script>
+<script>
+const input = document.getElementById('scanInput');
+input.focus();
+
+async function takeItem(barcode) {
+  const qty = parseFloat(document.getElementById('qty').value) || 1;
+  try {
+    const res = await fetch('/api/warehouse/take', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ barcode, qty })
+    });
+    const data = await res.json();
+    showResult(res.ok, data, barcode);
+  } catch (e) {
+    showResult(false, { error: 'Xatolik: ' + e.message }, barcode);
+  }
+}
+
+function showResult(ok, data, barcode) {
+  const card = document.getElementById('resultCard');
+  card.style.display = 'block';
+  const icon = document.getElementById('resultIcon');
+  const text = document.getElementById('resultText');
+  const sub = document.getElementById('resultSub');
+  if (ok) {
+    icon.textContent = '✅';
+    text.textContent = `${data.name} olindi`;
+    sub.textContent = data.low ? `⚠️ Qoldi: ${data.remaining} — kam qoldi!` : `Qoldi: ${data.remaining}`;
+    if (navigator.vibrate) navigator.vibrate(150);
+  } else {
+    icon.textContent = '⚠️';
+    text.textContent = data.error || 'Xatolik';
+    sub.textContent = '';
+  }
+  const entry = document.createElement('div');
+  entry.className = 'muted';
+  entry.textContent = `${ok ? '✅' : '⚠️'} ${ok ? data.name + ' olindi' : data.error} (${barcode})`;
+  document.getElementById('log').prepend(entry);
+}
+
+input.addEventListener('keydown', (e) => {
+  if (e.key === 'Enter') {
+    const val = e.target.value.trim();
+    e.target.value = '';
+    if (!val) return;
+    takeItem(val);
+  }
+});
+
+let scanner = null;
+let cameraOn = false;
+function toggleCamera() {
+  cameraOn = !cameraOn;
+  const readerDiv = document.getElementById('reader');
+  const btn = document.getElementById('cameraBtn');
+  if (cameraOn) {
+    readerDiv.style.display = 'block';
+    btn.textContent = '📷 Kamerani yopish';
+    scanner = new Html5Qrcode('reader');
+    let busy = false;
+    scanner.start(
+      { facingMode: 'environment' },
+      { fps: 10, qrbox: 250 },
+      async (decodedText) => {
+        if (busy) return;
+        busy = true;
+        await takeItem(decodedText);
+        setTimeout(() => { busy = false; }, 1200);
+      },
+      () => {}
+    ).catch(err => toast('Kameraga ruxsat berilmadi: ' + err));
+  } else {
+    readerDiv.style.display = 'none';
+    btn.textContent = '📷 Kamera bilan skan qilish';
+    if (scanner) scanner.stop().catch(() => {});
+  }
+}
+</script>
+</body>
+</html>

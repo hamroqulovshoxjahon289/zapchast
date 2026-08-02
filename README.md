@@ -54,7 +54,28 @@ Bu kodlarni **"Sozlamalar"** sahifasidan o'zgartirish mumkin (o'zgartirish uchun
 - Yuklashni yakunlaganda, skan qilinmagan narsalar aniq ko'rsatiladi: masalan "Polka yuklanmadi".
 - Har bir model uchun alohida QR-yorliqlarni "Modellar" bo'limidagi "🏷 Yorliqlar" tugmasi orqali chop etish mumkin.
 
-## Ma'lumotlar xavfsizligi (arxivlash)
+## Ombor (firma ehtiyoji zapchastlari)
+Modelga bog'liq bo'lmagan, firmada umumiy ishlatiladigan zapchastlar (masalan F25) uchun alohida bo'lim:
+- Har biriga kod (masalan 0025) va QR-kod beriladi.
+- Admin "Kirim" orqali necha dona kelganini kiritadi.
+- **"Ombordan olish"** sahifasi (parol talab qilinmaydi) — har kim kelib QR-kodni skan qilsa (pult yoki telefon kamerasi), miqdor avtomatik kamayadi.
+- Qoldiq belgilangan chegaradan kam bo'lib qolsa, "Kam qoldi!" ogohlantirishi chiqadi.
+- Har bir ombor zapchasti uchun ham QR-yorliqlarni chop etish mumkin.
+
+## Statistika
+- Ishchilar reytingi (kim qancha model terganini)
+- Kunlik faollik grafigi (so'nggi 30 kun)
+- Eng ko'p ishlab chiqarilgan modellar va eng ko'p ishlatilgan zapchastlar grafiklari
+
+## Excel eksport
+Tarix, ombor holati, ishchilar statistikasi, terish sessiyalari, model va zapchast statistikasini bir tugma bosish bilan `.xlsx` formatida yuklab olish mumkin (har bir tegishli sahifada "📥 Excelga yuklab olish" tugmasi bor).
+
+## Termal printer bilan yorliq chop etish
+Zapchast, yuk narsalari va ombor yorliqlari sahifalarida endi ikkita rejim bor:
+- **A4 varaqda** — bir necha ustunda, oddiy printer uchun (standart)
+- **Termal printer** — har bir yorliq alohida sahifa sifatida, o'lchamini (masalan 40x30mm) kiritib, to'g'ridan-to'g'ri Zebra/TSC kabi termal yorliq printeringizga mos chop etish
+
+
 Agar biror zapchast, model yoki kategoriya avvalgi terish/yuklash tarixida ishlatilgan bo'lsa, uni o'chirishga urinilganda tizim uni to'liq o'chirmaydi (tarixiy hisobotlar buzilib qolmasligi uchun), balki **arxivlaydi** — ya'ni u faol ro'yxatlardan (tanlov, terish, yuklash) yo'qoladi, lekin eski hisobotlarda to'liq va to'g'ri ko'rinishda qolaveradi.
 
 

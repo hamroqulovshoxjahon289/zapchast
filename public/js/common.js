@@ -25,6 +25,8 @@ function renderNav(active) {
     ['pick.html', 'Terish jarayoni'],
     ['cargo-items.html', 'Yuk narsalari'],
     ['loading.html', 'Yuklash jarayoni'],
+    ['warehouse.html', 'Ombor'],
+    ['stats.html', 'Statistika'],
     ['history.html', 'Tarix'],
     ['settings.html', 'Sozlamalar'],
   ];
@@ -62,6 +64,53 @@ function toggleTheme() {
 }
 
 initTheme();
+
+// ---- Termal printer / A4 chop etish rejimi (yorliqlar uchun umumiy) ----
+function initThermalControls(controlsContainerId, gridId) {
+  const container = document.getElementById(controlsContainerId);
+  container.insertAdjacentHTML('beforeend', `
+    <div style="margin-top:12px; display:flex; gap:16px; align-items:center; flex-wrap:wrap;">
+      <label style="display:flex; align-items:center; gap:6px; text-transform:none; font-weight:400; font-size:14px; margin:0;">
+        <input type="radio" name="printMode" value="a4" checked onchange="applyPrintMode('${gridId}')" style="width:auto; margin:0;"> A4 varaqda (bir necha ustun)
+      </label>
+      <label style="display:flex; align-items:center; gap:6px; text-transform:none; font-weight:400; font-size:14px; margin:0;">
+        <input type="radio" name="printMode" value="thermal" onchange="applyPrintMode('${gridId}')" style="width:auto; margin:0;"> Termal printer (bitta-bitta)
+      </label>
+      <span id="thermalSizeInputs" style="display:none; gap:6px; align-items:center;">
+        <input type="number" id="thermalW" value="40" style="width:64px; margin:0" onchange="applyPrintMode('${gridId}')"> x
+        <input type="number" id="thermalH" value="30" style="width:64px; margin:0" onchange="applyPrintMode('${gridId}')"> mm
+      </span>
+    </div>
+  `);
+}
+
+function applyPrintMode(gridId) {
+  const mode = document.querySelector('input[name="printMode"]:checked').value;
+  const sizeInputs = document.getElementById('thermalSizeInputs');
+  if (sizeInputs) sizeInputs.style.display = mode === 'thermal' ? 'inline-flex' : 'none';
+  let styleTag = document.getElementById('dynamicPrintStyle');
+  if (!styleTag) {
+    styleTag = document.createElement('style');
+    styleTag.id = 'dynamicPrintStyle';
+    document.head.appendChild(styleTag);
+  }
+  if (mode === 'thermal') {
+    const w = document.getElementById('thermalW').value || 40;
+    const h = document.getElementById('thermalH').value || 30;
+    styleTag.textContent = `
+      @page { size: ${w}mm ${h}mm; margin: 0; }
+      #${gridId} { display: block !important; }
+      #${gridId} .label-card {
+        width: ${w}mm; height: ${h}mm;
+        display: flex; flex-direction: column; align-items: center; justify-content: center;
+        page-break-after: always; border: none !important;
+        box-sizing: border-box; margin: 0 auto;
+      }
+    `;
+  } else {
+    styleTag.textContent = '';
+  }
+}
 
 // ---- PIN kod tizimi (qo'shish/tahrirlash/o'chirish uchun) ----
 const pinLabels = { create: 'Qo\'shish', edit: 'Tahrirlash', delete: 'O\'chirish' };

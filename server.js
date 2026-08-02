@@ -23,6 +23,9 @@ app.use('/api/history', require('./routes/history'));
 app.use('/api/settings', require('./routes/settings'));
 app.use('/api/cargo-items', require('./routes/cargo-items'));
 app.use('/api/loading', require('./routes/loading')(io));
+app.use('/api/warehouse', require('./routes/warehouse'));
+app.use('/api/stats', require('./routes/stats'));
+app.use('/api/export', require('./routes/export'));
 
 io.on('connection', (socket) => {
   socket.on('join_session', (sessionId) => {

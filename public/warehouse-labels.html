@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <script>(function(){var t=localStorage.getItem("theme")||"dark";document.documentElement.setAttribute("data-theme",t);})();</script>
-<title>Model yorliqlari</title>
+<title>Ombor yorliqlari</title>
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <link rel="icon" href="assets/logo.png">
 <link rel="stylesheet" href="css/style.css">
@@ -15,7 +15,7 @@
   }
   .label-card img { width: 130px; height: 130px; }
   .label-card .lname { font-weight: 700; font-size: 14px; margin-top: 6px; }
-  .label-card .lmodel { font-size: 11px; color: #555; }
+  .label-card .lcode { font-size: 11px; color: #555; }
   @media print { .labels-grid { grid-template-columns: repeat(3, 1fr); } }
 </style>
 </head>
@@ -26,34 +26,26 @@
 </div>
 <div class="container">
   <div class="card no-print" id="printControls">
-    <h2 id="pageTitle">🏷 Model yorliqlari</h2>
-    <p class="muted">Ushbu modelni yuklashda kerak bo'ladigan har bir narsaning QR-kodi. Kesib olib, jismoniy narsalarga yoki quti/paketlarga yopishtiring.</p>
-    <button class="btn" onclick="window.print()">🖨 Chop etish</button>
+    <h2>🏷 Ombor zapchastlari yorliqlari</h2>
+    <p class="muted">Har bir ombor zapchasti uchun QR-kod. Kesib olib jismoniy zapchastga yopishtiring.</p>
+    <button class="btn" onclick="window.print()">🖨 Barchasini chop etish</button>
   </div>
   <div class="labels-grid" id="labelsGrid">Yuklanmoqda...</div>
 </div>
 
 <script src="js/common.js"></script>
 <script>
-renderNav('models.html');
+renderNav('warehouse.html');
 initThermalControls('printControls', 'labelsGrid');
-const modelId = new URLSearchParams(location.search).get('model');
-
 async function load() {
-  if (!modelId) { document.getElementById('labelsGrid').innerHTML = '<p class="muted">Model tanlanmadi</p>'; return; }
-  const m = await api('/api/models/' + modelId);
-  document.getElementById('pageTitle').textContent = `🏷 ${m.name} — yuklash yorliqlari`;
-  const labels = [];
-  m.cargo_items.forEach(ci => labels.push({ name: ci.cargo_name, barcode: ci.barcode }));
-  if (m.has_zapchast) labels.push({ name: 'Zapchast', barcode: 'ZP' + String(m.id).padStart(6, '0') });
-
-  document.getElementById('labelsGrid').innerHTML = labels.map(l => `
+  const items = await api('/api/warehouse');
+  document.getElementById('labelsGrid').innerHTML = items.map(it => `
     <div class="label-card">
-      <img src="https://api.qrserver.com/v1/create-qr-code/?size=150x150&data=${encodeURIComponent(l.barcode)}">
-      <div class="lname">${l.name}</div>
-      <div class="lmodel">${m.name}</div>
+      <img src="https://api.qrserver.com/v1/create-qr-code/?size=150x150&data=${encodeURIComponent(it.barcode)}">
+      <div class="lname">${it.name}</div>
+      <div class="lcode">Kod: ${it.code}</div>
     </div>
-  `).join('') || '<p class="muted">Bu modelga hali yuk narsasi yoki zapchast biriktirilmagan</p>';
+  `).join('') || '<p class="muted">Hali ombor zapchasti yo\'q</p>';
 }
 load();
 </script>

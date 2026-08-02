@@ -1,0 +1,163 @@
+<!DOCTYPE html>
+<html lang="uz">
+<head>
+<meta charset="UTF-8">
+<script>(function(){var t=localStorage.getItem("theme")||"dark";document.documentElement.setAttribute("data-theme",t);})();</script>
+<title>Ombor</title>
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<link rel="icon" href="assets/logo.png">
+<link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+<div class="topbar">
+  <h1><img src="assets/logo.png" class="logo" alt="logo"> <span>Temurshox mebel</span></h1>
+  <div class="topbar-right"><div class="nav" id="nav"></div><button class="theme-toggle" id="themeToggle" onclick="toggleTheme()" title="Rejimni almashtirish">☀️</button></div>
+</div>
+<div class="container">
+  <div class="card" style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:10px;">
+    <div>
+      <h2 style="margin:0">📦 Ombor — firma ehtiyoji zapchastlari</h2>
+      <p class="muted" style="margin:4px 0 0">Modelga bog'liq bo'lmagan, firmada umumiy ishlatiladigan zapchastlar (masalan F25). Har kim QR-kodini skan qilib olib ketaveradi — miqdor avtomatik kamayadi.</p>
+    </div>
+    <div style="display:flex; gap:10px; flex-wrap:wrap;">
+      <a href="warehouse-scan.html" target="_blank" class="btn secondary">📷 Olib ketish (skan)</a>
+      <a href="warehouse-labels.html" target="_blank" class="btn secondary">🏷 Yorliqlar</a>
+      <a href="/api/export/warehouse.xlsx" class="btn secondary">📥 Excelga yuklab olish</a>
+      <button class="btn" onclick="openModal()">➕ Yangi zapchast</button>
+    </div>
+  </div>
+
+  <div class="card">
+    <table>
+      <thead><tr><th>QR</th><th>Nomi</th><th>Kod</th><th>Qoldiq</th><th>Min chegara</th><th></th></tr></thead>
+      <tbody id="rows"><tr><td colspan="6" class="muted">Yuklanmoqda...</td></tr></tbody>
+    </table>
+  </div>
+</div>
+
+<div class="modal-overlay" id="modalOverlay">
+  <div class="modal">
+    <h3 id="modalTitle">Yangi zapchast</h3>
+    <form onsubmit="return saveItem(event)">
+      <input type="hidden" id="itemId">
+      <label>Nomi</label>
+      <input id="iName" required placeholder="masalan: F25">
+      <label>Kod (4 xonali)</label>
+      <input id="iCode" maxlength="4" placeholder="avtomatik beriladi">
+      <label id="stockLabel">Boshlang'ich qoldiq</label>
+      <input id="iStock" type="number" step="any" placeholder="0">
+      <label>Kam qolganda ogohlantirish chegarasi</label>
+      <input id="iMin" type="number" step="any" placeholder="masalan: 10">
+      <div style="display:flex; gap:10px; margin-top:14px;">
+        <button type="submit" class="btn">Saqlash</button>
+        <button type="button" class="btn secondary" onclick="closeModal()">Bekor qilish</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<div class="modal-overlay" id="stockModal">
+  <div class="modal" style="max-width:380px; text-align:center">
+    <h3>📥 Kirim qilish</h3>
+    <p class="muted" id="stockItemName"></p>
+    <input id="stockAmount" type="number" step="any" placeholder="Necha dona keldi?">
+    <input id="stockNote" placeholder="Izoh (ixtiyoriy)">
+    <button class="btn" onclick="submitStockIn()">Qo'shish</button>
+    <button class="btn secondary" onclick="document.getElementById('stockModal').classList.remove('show')" style="margin-top:8px">Bekor qilish</button>
+  </div>
+</div>
+
+<script src="js/common.js"></script>
+<script>
+renderNav('warehouse.html');
+let items = [];
+let stockItemId = null;
+
+async function load() {
+  items = await api('/api/warehouse');
+  document.getElementById('rows').innerHTML = items.map(it => {
+    const low = it.stock <= it.min_threshold;
+    return `<tr>
+      <td><img class="thumb" src="https://api.qrserver.com/v1/create-qr-code/?size=80x80&data=${encodeURIComponent(it.barcode)}"></td>
+      <td>${it.name}</td>
+      <td class="muted">${it.code}</td>
+      <td><strong style="${low ? 'color:var(--bad)' : ''}">${it.stock}</strong> ${low ? '<span class="badge bad">Kam qoldi!</span>' : ''}</td>
+      <td class="muted">${it.min_threshold}</td>
+      <td style="white-space:nowrap">
+        <button class="btn secondary small" onclick="openStockModal(${it.id})">📥 Kirim</button>
+        <button class="btn secondary small" onclick="editItem(${it.id})">Tahrirlash</button>
+        <button class="btn danger small" onclick="delItem(${it.id})">O'chirish</button>
+      </td>
+    </tr>`;
+  }).join('') || '<tr><td colspan="6" class="muted">Hali ombor zapchasti yo\'q</td></tr>';
+}
+
+function openModal(item) {
+  document.getElementById('modalTitle').textContent = item ? 'Tahrirlash' : 'Yangi zapchast';
+  document.getElementById('itemId').value = item ? item.id : '';
+  document.getElementById('iName').value = item ? item.name : '';
+  document.getElementById('iCode').value = item ? item.code : '';
+  document.getElementById('iMin').value = item ? item.min_threshold : '';
+  document.getElementById('stockLabel').style.display = item ? 'none' : 'block';
+  document.getElementById('iStock').style.display = item ? 'none' : 'block';
+  document.getElementById('modalOverlay').classList.add('show');
+}
+function closeModal() { document.getElementById('modalOverlay').classList.remove('show'); }
+function editItem(id) { openModal(items.find(i => i.id === id)); }
+
+async function saveItem(e) {
+  e.preventDefault();
+  const id = document.getElementById('itemId').value;
+  const name = document.getElementById('iName').value.trim();
+  const code = document.getElementById('iCode').value.trim();
+  const min_threshold = document.getElementById('iMin').value;
+  const stock = document.getElementById('iStock').value;
+  if (!name) return false;
+  const type = id ? 'edit' : 'create';
+  await withPin(type, async (pin) => {
+    if (id) {
+      await api('/api/warehouse/' + id, { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ name, code, min_threshold, pin }) });
+    } else {
+      await api('/api/warehouse', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ name, code, stock, min_threshold, pin }) });
+    }
+    toast('Saqlandi');
+    closeModal();
+    load();
+  });
+  return false;
+}
+
+function openStockModal(id) {
+  stockItemId = id;
+  const item = items.find(i => i.id === id);
+  document.getElementById('stockItemName').textContent = `${item.name} — hozirgi qoldiq: ${item.stock}`;
+  document.getElementById('stockAmount').value = '';
+  document.getElementById('stockNote').value = '';
+  document.getElementById('stockModal').classList.add('show');
+}
+
+async function submitStockIn() {
+  const amount = document.getElementById('stockAmount').value;
+  const note = document.getElementById('stockNote').value;
+  if (!amount || parseFloat(amount) <= 0) return toast('Miqdorni kiriting');
+  await withPin('edit', async (pin) => {
+    await api(`/api/warehouse/${stockItemId}/stock-in`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ amount, note, pin }) });
+    toast('Kirim qilindi');
+    document.getElementById('stockModal').classList.remove('show');
+    load();
+  });
+}
+
+async function delItem(id) {
+  if (!confirm('Ushbu ombor zapchastini o\'chirishni tasdiqlaysizmi?')) return;
+  await withPin('delete', async (pin) => {
+    await api('/api/warehouse/' + id, { method: 'DELETE', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ pin }) });
+    toast('O\'chirildi');
+    load();
+  });
+}
+
+load();
+</script>
+</body>
+</html>

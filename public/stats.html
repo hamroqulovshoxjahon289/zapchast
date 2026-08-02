@@ -1,0 +1,128 @@
+<!DOCTYPE html>
+<html lang="uz">
+<head>
+<meta charset="UTF-8">
+<script>(function(){var t=localStorage.getItem("theme")||"dark";document.documentElement.setAttribute("data-theme",t);})();</script>
+<title>Statistika</title>
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<link rel="icon" href="assets/logo.png">
+<link rel="stylesheet" href="css/style.css">
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+</head>
+<body>
+<div class="topbar">
+  <h1><img src="assets/logo.png" class="logo" alt="logo"> <span>Temurshox mebel</span></h1>
+  <div class="topbar-right"><div class="nav" id="nav"></div><button class="theme-toggle" id="themeToggle" onclick="toggleTheme()" title="Rejimni almashtirish">☀️</button></div>
+</div>
+<div class="container">
+
+  <div class="card">
+    <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:10px;">
+      <h2 style="margin:0">🏆 Ishchilar reytingi</h2>
+      <a href="/api/export/workers-stats.xlsx" class="btn secondary small">📥 Excelga yuklab olish</a>
+    </div>
+    <canvas id="workersChart" height="90"></canvas>
+    <table style="margin-top:16px">
+      <thead><tr><th>Ishchi</th><th>Tugallangan sessiyalar</th><th>Terilgan zapchastlar</th><th>Oxirgi faollik</th></tr></thead>
+      <tbody id="workersRows"></tbody>
+    </table>
+  </div>
+
+  <div class="card">
+    <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:10px;">
+      <h2 style="margin:0">📈 Kunlik faollik (so'nggi 30 kun)</h2>
+    </div>
+    <canvas id="dailyChart" height="80"></canvas>
+  </div>
+
+  <div class="grid cols-2">
+    <div class="card">
+      <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:10px;">
+        <h2 style="margin:0">🗂 Eng ko'p ishlab chiqarilgan modellar</h2>
+        <a href="/api/export/models-stats.xlsx" class="btn secondary small">📥 Excel</a>
+      </div>
+      <canvas id="modelsChart"></canvas>
+    </div>
+    <div class="card">
+      <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:10px;">
+        <h2 style="margin:0">🔩 Eng ko'p ishlatilgan zapchastlar</h2>
+        <a href="/api/export/parts-stats.xlsx" class="btn secondary small">📥 Excel</a>
+      </div>
+      <canvas id="partsChart"></canvas>
+    </div>
+  </div>
+
+  <div class="card">
+    <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:10px;">
+      <h2 style="margin:0">📋 Barcha terish sessiyalari</h2>
+      <a href="/api/export/sessions.xlsx" class="btn secondary small">📥 Excelga yuklab olish</a>
+    </div>
+    <p class="muted">To'liq ro'yxatni Excel formatida yuklab olishingiz mumkin.</p>
+  </div>
+
+</div>
+
+<script src="js/common.js"></script>
+<script>
+renderNav('stats.html');
+
+function chartColors(n) {
+  const base = ['#e8b23d', '#4dd0e1', '#52d67e', '#ff5c72', '#c99422', '#6de0ee', '#93927f'];
+  return Array.from({ length: n }, (_, i) => base[i % base.length]);
+}
+
+async function load() {
+  const [workers, models, parts, daily] = await Promise.all([
+    api('/api/stats/workers'), api('/api/stats/models'), api('/api/stats/parts'), api('/api/stats/daily')
+  ]);
+
+  // Ishchilar jadvali
+  document.getElementById('workersRows').innerHTML = workers.map(w => `
+    <tr>
+      <td>${w.name}</td>
+      <td><strong>${w.sessions_count}</strong></td>
+      <td>${w.scanned_items || 0}</td>
+      <td class="muted">${w.last_activity ? fmtDate(w.last_activity) : '—'}</td>
+    </tr>
+  `).join('') || '<tr><td colspan="4" class="muted">Hali ma\'lumot yo\'q</td></tr>';
+
+  new Chart(document.getElementById('workersChart'), {
+    type: 'bar',
+    data: {
+      labels: workers.map(w => w.name),
+      datasets: [{ label: 'Tugallangan sessiyalar', data: workers.map(w => w.sessions_count), backgroundColor: chartColors(workers.length) }]
+    },
+    options: { plugins: { legend: { display: false } }, scales: { y: { beginAtZero: true, ticks: { stepSize: 1 } } } }
+  });
+
+  new Chart(document.getElementById('dailyChart'), {
+    type: 'line',
+    data: {
+      labels: daily.map(d => d.day),
+      datasets: [{ label: 'Kunlik tugallangan sessiyalar', data: daily.map(d => d.cnt), borderColor: '#e8b23d', backgroundColor: 'rgba(232,178,61,0.15)', fill: true, tension: 0.3 }]
+    },
+    options: { plugins: { legend: { display: false } }, scales: { y: { beginAtZero: true, ticks: { stepSize: 1 } } } }
+  });
+
+  new Chart(document.getElementById('modelsChart'), {
+    type: 'bar',
+    data: {
+      labels: models.map(m => `${m.category_name} > ${m.model_name}`),
+      datasets: [{ label: 'Ishlab chiqarilgan soni', data: models.map(m => m.sessions_count), backgroundColor: chartColors(models.length) }]
+    },
+    options: { indexAxis: 'y', plugins: { legend: { display: false } }, scales: { x: { beginAtZero: true, ticks: { stepSize: 1 } } } }
+  });
+
+  new Chart(document.getElementById('partsChart'), {
+    type: 'bar',
+    data: {
+      labels: parts.map(p => p.part_name),
+      datasets: [{ label: 'Ishlatilgan soni', data: parts.map(p => p.used_count), backgroundColor: chartColors(parts.length) }]
+    },
+    options: { indexAxis: 'y', plugins: { legend: { display: false } }, scales: { x: { beginAtZero: true, ticks: { stepSize: 1 } } } }
+  });
+}
+load();
+</script>
+</body>
+</html>
