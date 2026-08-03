@@ -14,12 +14,13 @@
   <div class="topbar-right"><div class="nav" id="nav"></div><button class="theme-toggle" id="themeToggle" onclick="toggleTheme()" title="Rejimni almashtirish">☀️</button></div>
 </div>
 <div class="container">
-  <div class="card" style="display:flex; justify-content:space-between; align-items:center;">
+  <div class="card accent-card" style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:14px;">
     <div>
+      <p style="margin:0 0 4px; text-transform:uppercase; letter-spacing:1px; font-size:11px; font-weight:700; color:var(--accent);">Bo'lim</p>
       <h2 style="margin:0">📦 Zapchastlar ro'yxati</h2>
       <p class="muted" style="margin:4px 0 0">Har bir zapchastning nomi, 4 xonali kodi va shtrix/QR-kodi bo'ladi (QR-kod avtomatik yaratiladi)</p>
     </div>
-    <div style="display:flex; gap:10px;">
+    <div style="display:flex; gap:10px; flex-wrap:wrap;">
       <a href="labels.html" target="_blank" class="btn secondary">🏷 Barcha yorliqlarni chop etish</a>
       <button class="btn" onclick="openModal()">➕ Yangi zapchast</button>
     </div>
@@ -86,7 +87,7 @@ function renderRows() {
         <button class="btn secondary small" onclick="editPart(${p.id})">Tahrirlash</button>
         <button class="btn danger small" onclick="delPart(${p.id})">O'chirish</button>
       </td>
-    </tr>`).join('') || '<tr><td colspan="7" class="muted">Hech narsa topilmadi</td></tr>';
+    </tr>`).join('') || '<tr><td colspan="7"><div class="empty-state"><div class="empty-icon">🔩</div>Hech narsa topilmadi</div></td></tr>';
 }
 
 async function openModal(part) {

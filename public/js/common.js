@@ -17,24 +17,54 @@ function toast(msg) {
 
 function renderNav(active) {
   const items = [
-    ['index.html', 'Bosh sahifa'],
-    ['categories.html', 'Kategoriyalar'],
-    ['parts.html', 'Zapchastlar'],
-    ['models.html', 'Modellar'],
-    ['workers.html', 'Ishchilar'],
-    ['pick.html', 'Terish jarayoni'],
-    ['cargo-items.html', 'Yuk narsalari'],
-    ['loading.html', 'Yuklash jarayoni'],
-    ['warehouse.html', 'Ombor'],
-    ['stats.html', 'Statistika'],
-    ['history.html', 'Tarix'],
-    ['settings.html', 'Sozlamalar'],
+    ['index.html', 'Bosh sahifa', '🏠'],
+    ['categories.html', 'Kategoriyalar', '🗂️'],
+    ['parts.html', 'Zapchastlar', '🔩'],
+    ['models.html', 'Modellar', '🛋️'],
+    ['workers.html', 'Ishchilar', '👷'],
+    ['pick.html', 'Terish jarayoni', '📋'],
+    ['cargo-items.html', 'Yuk narsalari', '📦'],
+    ['loading.html', 'Yuklash jarayoni', '🚚'],
+    ['warehouse.html', 'Ombor', '🏬'],
+    ['stats.html', 'Statistika', '📊'],
+    ['history.html', 'Tarix', '🕓'],
+    ['settings.html', 'Sozlamalar', '⚙️'],
   ];
   const nav = document.getElementById('nav');
   if (!nav) return;
-  nav.innerHTML = items.map(([href, label]) =>
-    `<a href="${href}" class="${active === href ? 'active' : ''}">${label}</a>`
+  nav.innerHTML = items.map(([href, label, icon]) =>
+    `<a href="${href}" class="${active === href ? 'active' : ''}">${icon} ${label}</a>`
   ).join('');
+  initMobileNav(nav);
+}
+
+// ---- Mobil hamburger-menyu: navigatsiya telefonda yo'qolib qolmasligi uchun ----
+function initMobileNav(nav) {
+  const topbarRight = nav.closest('.topbar-right');
+  if (!topbarRight) return;
+  let toggle = document.getElementById('navToggle');
+  if (!toggle) {
+    toggle = document.createElement('button');
+    toggle.id = 'navToggle';
+    toggle.className = 'nav-toggle';
+    toggle.type = 'button';
+    toggle.setAttribute('aria-label', 'Menyuni ochish');
+    toggle.innerHTML = '☰';
+    topbarRight.insertBefore(toggle, nav);
+    toggle.addEventListener('click', () => {
+      const open = nav.classList.toggle('open');
+      toggle.innerHTML = open ? '✕' : '☰';
+    });
+    document.addEventListener('click', (e) => {
+      if (!nav.classList.contains('open')) return;
+      if (nav.contains(e.target) || toggle.contains(e.target)) return;
+      nav.classList.remove('open');
+      toggle.innerHTML = '☰';
+    });
+  }
+  nav.addEventListener('click', (e) => {
+    if (e.target.tagName === 'A') { nav.classList.remove('open'); toggle.innerHTML = '☰'; }
+  });
 }
 
 function fmtDate(s) {

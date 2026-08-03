@@ -16,7 +16,12 @@
 </div>
 <div class="container">
 
-  <div class="card">
+  <div style="margin-bottom:22px;">
+    <p style="margin:0 0 4px; text-transform:uppercase; letter-spacing:1px; font-size:11.5px; font-weight:700; color:var(--accent);">Umumiy ko'rsatkichlar</p>
+    <h2 style="font-size:26px; margin:0; font-family:var(--font-display);">📊 Statistika</h2>
+  </div>
+
+  <div class="card accent-card">
     <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:10px;">
       <h2 style="margin:0">🏆 Ishchilar reytingi</h2>
       <a href="/api/export/workers-stats.xlsx" class="btn secondary small">📥 Excelga yuklab olish</a>
@@ -28,7 +33,7 @@
     </table>
   </div>
 
-  <div class="card">
+  <div class="card accent-card">
     <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:10px;">
       <h2 style="margin:0">📈 Kunlik faollik (so'nggi 30 kun)</h2>
     </div>
@@ -36,14 +41,14 @@
   </div>
 
   <div class="grid cols-2">
-    <div class="card">
+    <div class="card accent-card">
       <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:10px;">
-        <h2 style="margin:0">🗂 Eng ko'p ishlab chiqarilgan modellar</h2>
+        <h2 style="margin:0">🛋️ Eng ko'p ishlab chiqarilgan modellar</h2>
         <a href="/api/export/models-stats.xlsx" class="btn secondary small">📥 Excel</a>
       </div>
       <canvas id="modelsChart"></canvas>
     </div>
-    <div class="card">
+    <div class="card accent-card">
       <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:10px;">
         <h2 style="margin:0">🔩 Eng ko'p ishlatilgan zapchastlar</h2>
         <a href="/api/export/parts-stats.xlsx" class="btn secondary small">📥 Excel</a>
@@ -67,9 +72,19 @@
 renderNav('stats.html');
 
 function chartColors(n) {
-  const base = ['#e8b23d', '#4dd0e1', '#52d67e', '#ff5c72', '#c99422', '#6de0ee', '#93927f'];
+  const base = ['#d9a341', '#5fb8b0', '#56c97f', '#ff6b78', '#a9701f', '#7fd4cb', '#9b9182'];
   return Array.from({ length: n }, (_, i) => base[i % base.length]);
 }
+
+function chartTextColor() {
+  return getComputedStyle(document.documentElement).getPropertyValue('--muted').trim() || '#9b9182';
+}
+function chartGridColor() {
+  return getComputedStyle(document.documentElement).getPropertyValue('--border-soft').trim() || 'rgba(155,145,130,0.15)';
+}
+Chart.defaults.color = chartTextColor();
+Chart.defaults.borderColor = chartGridColor();
+Chart.defaults.font.family = "'Inter', sans-serif";
 
 async function load() {
   const [workers, models, parts, daily] = await Promise.all([
@@ -99,7 +114,7 @@ async function load() {
     type: 'line',
     data: {
       labels: daily.map(d => d.day),
-      datasets: [{ label: 'Kunlik tugallangan sessiyalar', data: daily.map(d => d.cnt), borderColor: '#e8b23d', backgroundColor: 'rgba(232,178,61,0.15)', fill: true, tension: 0.3 }]
+      datasets: [{ label: 'Kunlik tugallangan sessiyalar', data: daily.map(d => d.cnt), borderColor: '#d9a341', backgroundColor: 'rgba(217,163,65,0.15)', fill: true, tension: 0.3 }]
     },
     options: { plugins: { legend: { display: false } }, scales: { y: { beginAtZero: true, ticks: { stepSize: 1 } } } }
   });
