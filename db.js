@@ -103,6 +103,17 @@ CREATE TABLE IF NOT EXISTS cargo_items (
   created_at TEXT DEFAULT (datetime('now', '+5 hours'))
 );
 
+-- Har bir yuk narsasi (upakovka) ichidagi detallar ro'yxati: nomi, o'lchami, soni
+CREATE TABLE IF NOT EXISTS cargo_item_details (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  cargo_item_id INTEGER NOT NULL,
+  name TEXT NOT NULL,
+  size TEXT,
+  quantity REAL,
+  sort_order INTEGER DEFAULT 0,
+  FOREIGN KEY(cargo_item_id) REFERENCES cargo_items(id) ON DELETE CASCADE
+);
+
 -- Har bir modelga qaysi yuk narsalari kerakligi (krisha, bakavoy, polka, xdf tanlovi)
 CREATE TABLE IF NOT EXISTS model_cargo_items (
   id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -129,6 +140,7 @@ CREATE TABLE IF NOT EXISTS loading_items (
   item_type TEXT NOT NULL,
   name TEXT NOT NULL,
   barcode TEXT,
+  cargo_item_id INTEGER,
   status TEXT DEFAULT 'pending', -- pending | scanned
   scanned_at TEXT,
   FOREIGN KEY(loading_session_id) REFERENCES loading_sessions(id) ON DELETE CASCADE
@@ -169,6 +181,7 @@ ensureColumn('categories', 'active', 'INTEGER DEFAULT 1');
 ensureColumn('parts', 'active', 'INTEGER DEFAULT 1');
 ensureColumn('models', 'active', 'INTEGER DEFAULT 1');
 ensureColumn('model_parts', 'active', 'INTEGER DEFAULT 1');
+ensureColumn('loading_items', 'cargo_item_id', 'INTEGER');
 
 const defaultPins = { create_pin: '1111', edit_pin: '2222', delete_pin: '3333' };
 const insertSetting = db.prepare('INSERT OR IGNORE INTO settings (key, value) VALUES (?,?)');

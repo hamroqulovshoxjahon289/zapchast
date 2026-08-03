@@ -15,7 +15,8 @@ router.get('/', (req, res) => {
 });
 
 router.get('/:id', (req, res) => {
-  const model = db.prepare('SELECT * FROM models WHERE id=?').get(req.params.id);
+  const model = db.prepare(`SELECT m.*, c.name as category_name FROM models m
+    JOIN categories c ON c.id = m.category_id WHERE m.id=?`).get(req.params.id);
   if (!model) return res.status(404).json({ error: 'Topilmadi' });
   const parts = db.prepare(`SELECT mp.*, p.name as part_name, p.code, p.barcode, p.photo,
       p.has_length, p.has_quantity, p.has_weight

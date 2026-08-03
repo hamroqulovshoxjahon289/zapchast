@@ -17,15 +17,15 @@ module.exports = function (io) {
     const info = db.prepare('INSERT INTO loading_sessions (model_id) VALUES (?)').run(model_id);
     const sessionId = info.lastInsertRowid;
 
-    const cargoItems = db.prepare(`SELECT ci.name, ci.barcode FROM model_cargo_items mc
+    const cargoItems = db.prepare(`SELECT ci.id, ci.name, ci.barcode FROM model_cargo_items mc
       JOIN cargo_items ci ON ci.id = mc.cargo_item_id
       WHERE mc.model_id=? AND mc.active=1`).all(model_id);
-    const insertItem = db.prepare('INSERT INTO loading_items (loading_session_id, item_type, name, barcode) VALUES (?,?,?,?)');
-    cargoItems.forEach(ci => insertItem.run(sessionId, 'cargo', ci.name, ci.barcode));
+    const insertItem = db.prepare('INSERT INTO loading_items (loading_session_id, item_type, name, barcode, cargo_item_id) VALUES (?,?,?,?,?)');
+    cargoItems.forEach(ci => insertItem.run(sessionId, 'cargo', ci.name, ci.barcode, ci.id));
 
     const hasZapchast = db.prepare('SELECT COUNT(*) as c FROM model_parts WHERE model_id=? AND active=1').get(model_id).c > 0;
     if (hasZapchast) {
-      insertItem.run(sessionId, 'zapchast', 'Zapchast', zapchastBarcode(model_id));
+      insertItem.run(sessionId, 'zapchast', 'Zapchast', zapchastBarcode(model_id), null);
     }
 
     logHistory('start', 'loading_session', { id: sessionId, model_id });
@@ -61,6 +61,14 @@ module.exports = function (io) {
     logHistory('finish', 'loading_session', { id: req.params.id, missing });
     io.to('loading_' + req.params.id).emit('loading_session_finished', { id: req.params.id });
     res.json({ ok: true, missing });
+  });
+
+  router.get('/items/:id/details', (req, res) => {
+    const item = db.prepare('SELECT * FROM loading_items WHERE id=?').get(req.params.id);
+    if (!item) return res.status(404).json({ error: 'Topilmadi' });
+    if (!item.cargo_item_id) return res.json({ name: item.name, details: [] });
+    const details = db.prepare('SELECT * FROM cargo_item_details WHERE cargo_item_id=? ORDER BY sort_order, id').all(item.cargo_item_id);
+    res.json({ name: item.name, details });
   });
 
   router.get('/sessions', (req, res) => {

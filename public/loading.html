@@ -74,6 +74,16 @@
   </div>
 </div>
 
+<div class="modal-overlay" id="detailsModal">
+  <div class="modal">
+    <h3 id="detailsModalTitle">📦 Ichidagi detallar</h3>
+    <div id="detailsModalBody"></div>
+    <div style="margin-top:16px">
+      <button class="btn secondary" onclick="document.getElementById('detailsModal').classList.remove('show')">Yopish</button>
+    </div>
+  </div>
+</div>
+
 <script src="/socket.io/socket.io.js"></script>
 <script src="js/common.js"></script>
 <script>
@@ -131,9 +141,27 @@ async function loadSession() {
         <strong>${label}</strong>
         ${it.status === 'pending' ? `<span class="badge bad" style="margin-left:8px;">Hali yuklanmadi</span>` : `<span class="badge ok" style="margin-left:8px;">Yuklandi</span>`}
       </div>
+      ${it.item_type === 'cargo' ? `<button class="btn secondary small" onclick="viewDetails(${it.id})">👁 Ichini ko'rish</button>` : ''}
       <div class="status-icon">${icon}</div>
     </div>`;
   }).join('');
+}
+
+async function viewDetails(itemId) {
+  const data = await api(`/api/loading/items/${itemId}/details`);
+  document.getElementById('detailsModalTitle').textContent = `📦 ${data.name} — ichidagi detallar`;
+  if (!data.details.length) {
+    document.getElementById('detailsModalBody').innerHTML = '<p class="muted">Bu upakovka uchun detallar kiritilmagan.</p>';
+  } else {
+    document.getElementById('detailsModalBody').innerHTML = `
+      <table>
+        <thead><tr><th>№</th><th>Nomi</th><th>O'lchami</th><th>Soni</th></tr></thead>
+        <tbody>
+          ${data.details.map((d, i) => `<tr><td>${i + 1}</td><td>${d.name}</td><td>${d.size || '—'}</td><td>${d.quantity ?? '—'}</td></tr>`).join('')}
+        </tbody>
+      </table>`;
+  }
+  document.getElementById('detailsModal').classList.add('show');
 }
 
 function showPhoneLink() {

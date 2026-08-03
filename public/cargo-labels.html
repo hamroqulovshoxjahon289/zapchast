@@ -8,15 +8,25 @@
 <link rel="icon" href="assets/logo.png">
 <link rel="stylesheet" href="css/style.css">
 <style>
-  .labels-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; }
+  .labels-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
   .label-card {
-    border: 1px dashed #999; border-radius: 8px; padding: 12px;
-    text-align: center; background: white; color: black; break-inside: avoid;
+    border: 2px solid #222; border-radius: 4px; padding: 14px;
+    background: white; color: black; break-inside: avoid; font-family: Arial, sans-serif;
   }
-  .label-card img { width: 130px; height: 130px; }
-  .label-card .lname { font-weight: 700; font-size: 14px; margin-top: 6px; }
-  .label-card .lmodel { font-size: 11px; color: #555; }
-  @media print { .labels-grid { grid-template-columns: repeat(3, 1fr); } }
+  .label-card.simple { text-align: center; }
+  .label-brand { font-size: 22px; font-weight: 900; letter-spacing: 1px; }
+  .label-header { display: flex; justify-content: space-between; align-items: flex-start; border-bottom: 2px solid #222; padding-bottom: 8px; margin-bottom: 8px; }
+  .label-model { font-size: 13px; font-weight: 700; text-transform: uppercase; margin-top: 4px; }
+  .label-package { font-size: 15px; font-weight: 700; text-transform: uppercase; margin: 6px 0; }
+  .label-card img.qr { width: 90px; height: 90px; }
+  .label-table { width: 100%; border-collapse: collapse; font-size: 11px; margin-top: 6px; }
+  .label-table th, .label-table td { border: 1px solid #333; padding: 3px 5px; text-align: left; }
+  .label-table th { background: #eee; text-transform: uppercase; font-size: 10px; }
+  .label-table td:first-child, .label-table th:first-child { text-align: center; width: 24px; }
+  @media print {
+    .labels-grid { grid-template-columns: 1fr 1fr; }
+    .label-card { page-break-inside: avoid; }
+  }
 </style>
 </head>
 <body>
@@ -27,7 +37,7 @@
 <div class="container">
   <div class="card no-print" id="printControls">
     <h2 id="pageTitle">🏷 Model yorliqlari</h2>
-    <p class="muted">Ushbu modelni yuklashda kerak bo'ladigan har bir narsaning QR-kodi. Kesib olib, jismoniy narsalarga yoki quti/paketlarga yopishtiring.</p>
+    <p class="muted">Ushbu modelni yuklashda kerak bo'ladigan har bir upakovkaning to'liq jo'natma varag'i (ichidagi detallar bilan). Kesib olib quti/paketga yopishtiring.</p>
     <button class="btn" onclick="window.print()">🖨 Chop etish</button>
   </div>
   <div class="labels-grid" id="labelsGrid">Yuklanmoqda...</div>
@@ -42,18 +52,46 @@ const modelId = new URLSearchParams(location.search).get('model');
 async function load() {
   if (!modelId) { document.getElementById('labelsGrid').innerHTML = '<p class="muted">Model tanlanmadi</p>'; return; }
   const m = await api('/api/models/' + modelId);
-  document.getElementById('pageTitle').textContent = `🏷 ${m.name} — yuklash yorliqlari`;
-  const labels = [];
-  m.cargo_items.forEach(ci => labels.push({ name: ci.cargo_name, barcode: ci.barcode }));
-  if (m.has_zapchast) labels.push({ name: 'Zapchast', barcode: 'ZP' + String(m.id).padStart(6, '0') });
+  document.getElementById('pageTitle').textContent = `🏷 ${m.category_name || ''} > ${m.name} — yuklash yorliqlari`;
 
-  document.getElementById('labelsGrid').innerHTML = labels.map(l => `
-    <div class="label-card">
-      <img src="https://api.qrserver.com/v1/create-qr-code/?size=150x150&data=${encodeURIComponent(l.barcode)}">
-      <div class="lname">${l.name}</div>
-      <div class="lmodel">${m.name}</div>
-    </div>
-  `).join('') || '<p class="muted">Bu modelga hali yuk narsasi yoki zapchast biriktirilmagan</p>';
+  const cargoDetailed = await Promise.all(m.cargo_items.map(ci => api('/api/cargo-items/' + ci.cargo_item_id)));
+
+  let html = '';
+  cargoDetailed.forEach(ci => {
+    const qr = `https://api.qrserver.com/v1/create-qr-code/?size=90x90&data=${encodeURIComponent(ci.barcode)}`;
+    const rows = ci.details.length
+      ? ci.details.map((d, i) => `<tr><td>${i + 1}</td><td>${d.name}</td><td>${d.size || '—'}</td><td>${d.quantity ?? '—'}</td></tr>`).join('')
+      : `<tr><td colspan="4" style="text-align:center; color:#888;">Detallar kiritilmagan</td></tr>`;
+    html += `
+      <div class="label-card">
+        <div class="label-header">
+          <div>
+            <div class="label-brand">TEMURSHOX</div>
+            <div class="label-model">${m.category_name || ''} / ${m.name}</div>
+            <div class="label-package">${ci.name}</div>
+          </div>
+          <img class="qr" src="${qr}">
+        </div>
+        <table class="label-table">
+          <thead><tr><th>№</th><th>Nomi</th><th>O'lchami</th><th>Soni</th></tr></thead>
+          <tbody>${rows}</tbody>
+        </table>
+      </div>`;
+  });
+
+  if (m.has_zapchast) {
+    const zpBarcode = 'ZP' + String(m.id).padStart(6, '0');
+    const qr = `https://api.qrserver.com/v1/create-qr-code/?size=90x90&data=${encodeURIComponent(zpBarcode)}`;
+    html += `
+      <div class="label-card simple">
+        <div class="label-brand">TEMURSHOX</div>
+        <div class="label-model">${m.category_name || ''} / ${m.name}</div>
+        <div class="label-package">Zapchast</div>
+        <img class="qr" src="${qr}">
+      </div>`;
+  }
+
+  document.getElementById('labelsGrid').innerHTML = html || '<p class="muted">Bu modelga hali yuk narsasi yoki zapchast biriktirilmagan</p>';
 }
 load();
 </script>

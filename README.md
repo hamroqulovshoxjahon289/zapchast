@@ -53,6 +53,7 @@ Bu kodlarni **"Sozlamalar"** sahifasidan o'zgartirish mumkin (o'zgartirish uchun
 - Har bir narsani (krisha, bakavoy, polka, xdf, zapchast) QR-kodini skan qilish orqali (pult skaner yoki telefon kamerasi) ✅ deb belgilanadi.
 - Yuklashni yakunlaganda, skan qilinmagan narsalar aniq ko'rsatiladi: masalan "Polka yuklanmadi".
 - Har bir model uchun alohida QR-yorliqlarni "Modellar" bo'limidagi "🏷 Yorliqlar" tugmasi orqali chop etish mumkin.
+- **Upakovka ichidagi detallar**: har bir yuk narsasi (masalan "16-17-Tumba/tumbochka") ichiga bir nechta detal qo'shish mumkin — nomi, o'lchami (masalan 500*430) va soni. Yuklash paytida upakovkani skan qilgach, "👁 Ichini ko'rish" orqali barcha detallar ko'rinadi. "🏷 Yorliqlar" endi har bir upakovka uchun to'liq jo'natma varag'ini (TEMURSHOX brendi, QR-kod va detallar jadvali bilan) chop etadi.
 
 ## Ombor (firma ehtiyoji zapchastlari)
 Modelga bog'liq bo'lmagan, firmada umumiy ishlatiladigan zapchastlar (masalan F25) uchun alohida bo'lim:

@@ -16,28 +16,31 @@
 <div class="container">
   <div class="card" style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:10px;">
     <div>
-      <h2 style="margin:0">🚚 Yuk narsalari</h2>
-      <p class="muted" style="margin:4px 0 0">Krisha, bakavoy, polka, xdf va h.k. — bularning har biriga QR-kod avtomatik yaratiladi. Keyinchalik har bir modelga qaysi narsalar kerakligini tanlaysiz.</p>
+      <h2 style="margin:0">🚚 Yuk narsalari (upakovkalar)</h2>
+      <p class="muted" style="margin:4px 0 0">Har bir upakovka (masalan "Krisha") ichida bir nechta detal bo'lishi mumkin — har birining nomi, o'lchami va soni kiritiladi. Skan qilganda shu upakovka va ichidagi detallar ko'rinadi.</p>
     </div>
-    <button class="btn" onclick="openModal()">➕ Yangi narsa</button>
+    <button class="btn" onclick="openModal()">➕ Yangi upakovka</button>
   </div>
 
   <div class="card">
     <table>
-      <thead><tr><th>QR</th><th>Nomi</th><th>Kod</th><th></th></tr></thead>
-      <tbody id="rows"><tr><td colspan="4" class="muted">Yuklanmoqda...</td></tr></tbody>
+      <thead><tr><th>QR</th><th>Nomi</th><th>Kod</th><th>Detallar soni</th><th></th></tr></thead>
+      <tbody id="rows"><tr><td colspan="5" class="muted">Yuklanmoqda...</td></tr></tbody>
     </table>
   </div>
 </div>
 
 <div class="modal-overlay" id="modalOverlay">
-  <div class="modal">
-    <h3 id="modalTitle">Yangi yuk narsasi</h3>
+  <div class="modal" style="max-width:700px">
+    <h3 id="modalTitle">Yangi upakovka</h3>
     <form id="itemForm" onsubmit="return saveItem(event)">
       <input type="hidden" id="itemId">
-      <label>Nomi</label>
-      <input id="iName" required placeholder="masalan: Krisha">
-      <div style="display:flex; gap:10px; margin-top:14px;">
+      <label>Upakovka nomi</label>
+      <input id="iName" required placeholder="masalan: Krisha yoki 16-17-Tumba/tumbochka">
+      <label>Ichidagi detallar (nomi, o'lchami, soni)</label>
+      <div id="detailsRows"></div>
+      <button type="button" class="btn secondary small" onclick="addDetailRow()" style="margin-top:6px">➕ Detal qatori qo'shish</button>
+      <div style="display:flex; gap:10px; margin-top:16px;">
         <button type="submit" class="btn">Saqlash</button>
         <button type="button" class="btn secondary" onclick="closeModal()">Bekor qilish</button>
       </div>
@@ -57,30 +60,61 @@ async function load() {
       <td><img class="thumb" src="https://api.qrserver.com/v1/create-qr-code/?size=80x80&data=${encodeURIComponent(it.barcode)}" title="${it.barcode}"></td>
       <td>${it.name}</td>
       <td class="muted">${it.barcode}</td>
+      <td class="muted">${it.details_count || 0} ta</td>
       <td style="white-space:nowrap">
         <button class="btn secondary small" onclick="editItem(${it.id})">Tahrirlash</button>
         <button class="btn danger small" onclick="delItem(${it.id})">O'chirish</button>
       </td>
-    </tr>`).join('') || '<tr><td colspan="4" class="muted">Hali yuk narsasi yo\'q</td></tr>';
+    </tr>`).join('') || '<tr><td colspan="5" class="muted">Hali upakovka yo\'q</td></tr>';
 }
 
-function openModal(item) {
-  document.getElementById('modalTitle').textContent = item ? 'Tahrirlash' : 'Yangi yuk narsasi';
+function detailRowHtml(d = {}) {
+  return `<div class="parts-grid-item detail-row" style="display:flex; gap:8px; align-items:center; margin-bottom:8px;">
+    <input placeholder="Detal nomi (masalan: Stol usti)" class="det-name" value="${d.name || ''}" style="margin:0; flex:2">
+    <input placeholder="O'lchami (masalan: 500*430)" class="det-size" value="${d.size || ''}" style="margin:0; flex:1">
+    <input type="number" step="any" placeholder="Soni" class="det-qty" value="${d.quantity ?? ''}" style="margin:0; flex:1">
+    <button type="button" class="btn danger small" onclick="this.parentElement.remove()">✕</button>
+  </div>`;
+}
+
+function addDetailRow(d) {
+  document.getElementById('detailsRows').insertAdjacentHTML('beforeend', detailRowHtml(d));
+}
+
+async function openModal(item) {
+  document.getElementById('modalTitle').textContent = item ? 'Upakovkani tahrirlash' : 'Yangi upakovka';
   document.getElementById('itemId').value = item ? item.id : '';
   document.getElementById('iName').value = item ? item.name : '';
+  document.getElementById('detailsRows').innerHTML = '';
+  if (item) {
+    const full = await api('/api/cargo-items/' + item.id);
+    if (full.details.length) full.details.forEach(d => addDetailRow(d));
+    else addDetailRow();
+  } else {
+    addDetailRow();
+  }
   document.getElementById('modalOverlay').classList.add('show');
 }
 function closeModal() { document.getElementById('modalOverlay').classList.remove('show'); }
 function editItem(id) { openModal(items.find(i => i.id === id)); }
+
+function collectDetails() {
+  return Array.from(document.querySelectorAll('#detailsRows .detail-row')).map(row => ({
+    name: row.querySelector('.det-name').value.trim(),
+    size: row.querySelector('.det-size').value.trim(),
+    quantity: row.querySelector('.det-qty').value
+  })).filter(d => d.name);
+}
 
 async function saveItem(e) {
   e.preventDefault();
   const id = document.getElementById('itemId').value;
   const name = document.getElementById('iName').value.trim();
   if (!name) return false;
+  const details = collectDetails();
   const type = id ? 'edit' : 'create';
   await withPin(type, async (pin) => {
-    const body = JSON.stringify({ name, pin });
+    const body = JSON.stringify({ name, details, pin });
     if (id) {
       await api('/api/cargo-items/' + id, { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body });
     } else {
@@ -94,7 +128,7 @@ async function saveItem(e) {
 }
 
 async function delItem(id) {
-  if (!confirm('Ushbu yuk narsasini o\'chirishni tasdiqlaysizmi?')) return;
+  if (!confirm('Ushbu upakovkani o\'chirishni tasdiqlaysizmi?')) return;
   await withPin('delete', async (pin) => {
     await api('/api/cargo-items/' + id, { method: 'DELETE', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ pin }) });
     toast('O\'chirildi');
