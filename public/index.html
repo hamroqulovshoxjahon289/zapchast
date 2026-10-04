@@ -2,45 +2,38 @@
 <html lang="uz">
 <head>
 <meta charset="UTF-8">
-<script>(function(){var t=localStorage.getItem("theme")||"dark";document.documentElement.setAttribute("data-theme",t);})();</script>
 <title>Temurshox mebel — Zapchast tizimi</title>
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<link rel="icon" href="assets/logo.png">
 <link rel="stylesheet" href="css/style.css">
 </head>
 <body>
 <div class="topbar">
-  <h1><img src="assets/logo.png" class="logo" alt="logo"> <span>Temurshox mebel</span></h1>
-  <div class="topbar-right"><div class="nav" id="nav"></div><button class="theme-toggle" id="themeToggle" onclick="toggleTheme()" title="Rejimni almashtirish">☀️</button></div>
+  <h1>🪚 Temurshox mebel — Zapchast tizimi</h1>
+  <div class="nav" id="nav"></div>
 </div>
 <div class="container">
-  <div class="card" style="background:var(--panel); overflow:hidden; position:relative; padding:28px 26px;">
-    <div style="position:absolute; inset:0; background:var(--accent-grad); opacity:0.08; pointer-events:none;"></div>
-    <p style="margin:0 0 6px; text-transform:uppercase; letter-spacing:1px; font-size:11.5px; font-weight:700; color:var(--accent);">Zapchast tizimi</p>
-    <h2 style="font-size:24px; margin:0 0 8px;">🔍 Terish jarayonini boshlash</h2>
-    <p class="muted" style="margin:0 0 18px; max-width:560px;">Ishchi shu yerdan kategoriya va modelni tanlab, zapchast terishni boshlaydi — skaner yoki telefon kamerasi bilan ✓ belgilanadi.</p>
-    <a href="pick.html" class="btn">Terishni boshlash →</a>
-  </div>
-
   <div class="grid cols-3">
-    <div class="card accent-card" style="text-align:center">
-      <h2 style="justify-content:center">📦 Zapchastlar</h2>
-      <p style="font-size:28px; font-weight:800; font-family:var(--font-display); margin:6px 0 2px;" id="partsCount">—</p>
-      <p class="muted" style="margin:0 0 14px;">jami ro'yxatda</p>
+    <div class="card" style="text-align:center">
+      <h2>📦 Zapchastlar</h2>
+      <p class="muted" id="partsCount">—</p>
       <a href="parts.html" class="btn secondary">Boshqarish</a>
     </div>
-    <div class="card accent-card" style="text-align:center">
-      <h2 style="justify-content:center">🛋️ Kategoriya / Model</h2>
-      <p style="font-size:28px; font-weight:800; font-family:var(--font-display); margin:6px 0 2px;" id="modelsCount">—</p>
-      <p class="muted" style="margin:0 0 14px;">jami model</p>
+    <div class="card" style="text-align:center">
+      <h2>🗂 Kategoriya / Model</h2>
+      <p class="muted" id="modelsCount">—</p>
       <a href="models.html" class="btn secondary">Boshqarish</a>
     </div>
-    <div class="card accent-card" style="text-align:center">
-      <h2 style="justify-content:center">👷 Ishchilar</h2>
-      <p style="font-size:28px; font-weight:800; font-family:var(--font-display); margin:6px 0 2px;" id="workersCount">—</p>
-      <p class="muted" style="margin:0 0 14px;">jami ishchi</p>
+    <div class="card" style="text-align:center">
+      <h2>👷 Ishchilar</h2>
+      <p class="muted" id="workersCount">—</p>
       <a href="workers.html" class="btn secondary">Boshqarish</a>
     </div>
+  </div>
+
+  <div class="card">
+    <h2>🔍 Terish jarayonini boshlash</h2>
+    <p class="muted">Ishchi zapchast terishni shu yerdan boshlaydi.</p>
+    <a href="pick.html" class="btn">Terishni boshlash</a>
   </div>
 
   <div class="card">
@@ -69,7 +62,7 @@ renderNav('index.html');
       <td>${s.worker_name}</td>
       <td>${s.category_name} &gt; ${s.model_name}</td>
       <td><span class="badge ${s.status === 'finished' ? 'ok' : 'pending'}">${s.status === 'finished' ? 'Tugallangan' : 'Jarayonda'}</span></td>
-    </tr>`).join('') || '<tr><td colspan="4"><div class="empty-state"><div class="empty-icon">🗒️</div>Hali sessiya yo\'q</div></td></tr>';
+    </tr>`).join('') || '<tr><td colspan="4" class="muted">Hali sessiya yo\'q</td></tr>';
 })();
 </script>
 </body>

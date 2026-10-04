@@ -2,16 +2,14 @@
 <html lang="uz">
 <head>
 <meta charset="UTF-8">
-<script>(function(){var t=localStorage.getItem("theme")||"dark";document.documentElement.setAttribute("data-theme",t);})();</script>
 <title>Terish jarayoni</title>
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<link rel="icon" href="assets/logo.png">
 <link rel="stylesheet" href="css/style.css">
 </head>
 <body>
 <div class="topbar">
-  <h1><img src="assets/logo.png" class="logo" alt="logo"> <span>Temurshox mebel</span></h1>
-  <div class="topbar-right"><div class="nav" id="nav"></div><button class="theme-toggle" id="themeToggle" onclick="toggleTheme()" title="Rejimni almashtirish">☀️</button></div>
+  <h1>🪚 Temurshox mebel</h1>
+  <div class="nav" id="nav"></div>
 </div>
 <div class="container">
 
@@ -128,15 +126,16 @@ async function loadSession() {
       it.has_weight && it.weight != null ? `Grammi: ${it.weight}` : '',
       it.has_length && it.length != null ? `Uzunligi: ${it.length}` : ''
     ].filter(Boolean);
-    const icon = it.status === 'scanned' ? '✅' : it.status === 'manual_x' ? '❌' : '⏳';
+    const icon = (it.status === 'scanned' || it.status === 'manual_x') ? '✅' : '⏳';
     return `<div class="pick-item ${it.status}">
       ${it.photo ? `<img class="thumb" src="${it.photo}">` : ''}
       <div class="info">
         <strong>${it.part_name}</strong> <span class="muted">(${it.code})</span>
+        ${it.status === 'manual_x' ? `<span class="muted" style="margin-left:6px; font-size:11px;">(qo'lda belgilandi)</span>` : ''}
         ${details.map(d => `<span class="badge info" style="margin-left:8px;">${d}</span>`).join('')}
       </div>
       <div class="status-icon">${icon}</div>
-      ${it.status === 'pending' ? `<button class="btn danger small" onclick="markManual(${it.id})">X qo'yish</button>` : ''}
+      ${it.status === 'pending' ? `<button class="btn secondary small" onclick="markManual(${it.id})">✓ Qo'lda belgilash</button>` : ''}
     </div>`;
   }).join('');
 }

@@ -3,7 +3,7 @@ const router = express.Router();
 const multer = require('multer');
 const path = require('path');
 const fs = require('fs');
-const { db, logHistory, checkPin } = require('../db');
+const { db, logHistory } = require('../db');
 
 const uploadDir = path.join(__dirname, '..', 'public', 'uploads');
 if (!fs.existsSync(uploadDir)) fs.mkdirSync(uploadDir, { recursive: true });
@@ -57,7 +57,7 @@ router.get('/next-code', (req, res) => {
 });
 
 router.get('/', (req, res) => {
-  const rows = db.prepare('SELECT * FROM parts WHERE active=1 ORDER BY name').all();
+  const rows = db.prepare('SELECT * FROM parts ORDER BY name').all();
   res.json(rows);
 });
 
@@ -67,8 +67,7 @@ router.get('/:id', (req, res) => {
 });
 
 router.post('/', upload.single('photo'), (req, res) => {
-  const { name, code, barcode, has_length, has_quantity, has_weight, pin } = req.body;
-  if (!checkPin('create', pin)) return res.status(403).json({ error: 'Qo\'shish kodi noto\'g\'ri' });
+  const { name, code, barcode, has_length, has_quantity, has_weight } = req.body;
   if (!name || !name.trim()) return res.status(400).json({ error: 'Nomi kiritilmadi' });
   const finalCode = (code && code.trim()) ? code.trim() : nextCode();
   const finalBarcode = (barcode && barcode.trim()) ? barcode.trim() : uniqueBarcode(finalCode);
@@ -90,14 +89,13 @@ router.post('/', upload.single('photo'), (req, res) => {
 });
 
 router.put('/:id', upload.single('photo'), (req, res) => {
-  const { name, code, barcode, has_length, has_quantity, has_weight, pin } = req.body;
-  if (!checkPin('edit', pin)) return res.status(403).json({ error: 'Tahrirlash kodi noto\'g\'ri' });
+  const { name, code, barcode, has_length, has_quantity, has_weight } = req.body;
   const existing = db.prepare('SELECT * FROM parts WHERE id=?').get(req.params.id);
   if (!existing) return res.status(404).json({ error: 'Topilmadi' });
   const photo = req.file ? '/uploads/' + req.file.filename : existing.photo;
   const finalBarcode = (barcode && barcode.trim()) ? barcode.trim() : (existing.barcode || uniqueBarcode(code.trim()));
   try {
-    db.prepare(`UPDATE parts SET name=?, code=?, barcode=?, has_length=?, has_quantity=?, has_weight=?, photo=?, updated_at=datetime('now', '+5 hours')
+    db.prepare(`UPDATE parts SET name=?, code=?, barcode=?, has_length=?, has_quantity=?, has_weight=?, photo=?, updated_at=datetime('now')
       WHERE id=?`).run(
       name.trim(), code.trim(), finalBarcode,
       has_length === 'true' || has_length === true ? 1 : 0,
@@ -113,22 +111,10 @@ router.put('/:id', upload.single('photo'), (req, res) => {
 });
 
 router.delete('/:id', (req, res) => {
-  const { pin } = req.body;
-  if (!checkPin('delete', pin)) return res.status(403).json({ error: 'O\'chirish kodi noto\'g\'ri' });
   const existing = db.prepare('SELECT * FROM parts WHERE id=?').get(req.params.id);
-  if (!existing) return res.status(404).json({ error: 'Zapchast topilmadi' });
-  try {
-    db.prepare('DELETE FROM parts WHERE id=?').run(req.params.id);
-    logHistory('delete', 'part', { id: req.params.id, name: existing.name, code: existing.code });
-    res.json({ ok: true });
-  } catch (e) {
-    if (String(e.message).includes('FOREIGN KEY')) {
-      db.prepare('UPDATE parts SET active=0 WHERE id=?').run(req.params.id);
-      logHistory('archive', 'part', { id: req.params.id, name: existing.name, code: existing.code, reason: 'terish tarixida ishlatilgan' });
-      return res.json({ ok: true, archived: true });
-    }
-    res.status(500).json({ error: 'Kutilmagan xatolik: ' + e.message });
-  }
+  db.prepare('DELETE FROM parts WHERE id=?').run(req.params.id);
+  logHistory('delete', 'part', { id: req.params.id, name: existing && existing.name, code: existing && existing.code });
+  res.json({ ok: true });
 });
 
 module.exports = router;

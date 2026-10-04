@@ -9,7 +9,7 @@ module.exports = function (io) {
     if (!worker_id || !model_id) return res.status(400).json({ error: 'Ma\'lumot yetarli emas' });
     const info = db.prepare('INSERT INTO picking_sessions (worker_id, model_id) VALUES (?,?)').run(worker_id, model_id);
     const sessionId = info.lastInsertRowid;
-    const modelParts = db.prepare('SELECT id FROM model_parts WHERE model_id=?').all(model_id);
+    const modelParts = db.prepare('SELECT id FROM model_parts WHERE model_id=? AND active=1').all(model_id);
     const insertItem = db.prepare('INSERT INTO picking_items (session_id, model_part_id) VALUES (?,?)');
     modelParts.forEach(mp => insertItem.run(sessionId, mp.id));
     logHistory('start', 'session', { id: sessionId, worker_id, model_id });
@@ -54,7 +54,7 @@ module.exports = function (io) {
     }
     if (!item) return res.status(404).json({ error: 'Zapchast topilmadi yoki allaqachon belgilangan' });
     const status = method === 'manual_x' ? 'manual_x' : 'scanned';
-    db.prepare(`UPDATE picking_items SET status=?, scanned_at=datetime('now', '+5 hours') WHERE id=?`).run(status, item.id);
+    db.prepare(`UPDATE picking_items SET status=?, scanned_at=datetime('now') WHERE id=?`).run(status, item.id);
     const updated = { ...item, status };
     io.to('session_' + sessionId).emit('item_updated', updated);
     res.json({ ok: true, item: updated });
@@ -62,7 +62,7 @@ module.exports = function (io) {
 
   // Finish session
   router.post('/:id/finish', (req, res) => {
-    db.prepare(`UPDATE picking_sessions SET status='finished', finished_at=datetime('now', '+5 hours') WHERE id=?`).run(req.params.id);
+    db.prepare(`UPDATE picking_sessions SET status='finished', finished_at=datetime('now') WHERE id=?`).run(req.params.id);
     logHistory('finish', 'session', { id: req.params.id });
     io.to('session_' + req.params.id).emit('session_finished', { id: req.params.id });
     res.json({ ok: true });

@@ -2,25 +2,22 @@
 <html lang="uz">
 <head>
 <meta charset="UTF-8">
-<script>(function(){var t=localStorage.getItem("theme")||"dark";document.documentElement.setAttribute("data-theme",t);})();</script>
 <title>Zapchastlar</title>
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<link rel="icon" href="assets/logo.png">
 <link rel="stylesheet" href="css/style.css">
 </head>
 <body>
 <div class="topbar">
-  <h1><img src="assets/logo.png" class="logo" alt="logo"> <span>Temurshox mebel</span></h1>
-  <div class="topbar-right"><div class="nav" id="nav"></div><button class="theme-toggle" id="themeToggle" onclick="toggleTheme()" title="Rejimni almashtirish">☀️</button></div>
+  <h1>🪚 Temurshox mebel</h1>
+  <div class="nav" id="nav"></div>
 </div>
 <div class="container">
-  <div class="card accent-card" style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:14px;">
+  <div class="card" style="display:flex; justify-content:space-between; align-items:center;">
     <div>
-      <p style="margin:0 0 4px; text-transform:uppercase; letter-spacing:1px; font-size:11px; font-weight:700; color:var(--accent);">Bo'lim</p>
       <h2 style="margin:0">📦 Zapchastlar ro'yxati</h2>
       <p class="muted" style="margin:4px 0 0">Har bir zapchastning nomi, 4 xonali kodi va shtrix/QR-kodi bo'ladi (QR-kod avtomatik yaratiladi)</p>
     </div>
-    <div style="display:flex; gap:10px; flex-wrap:wrap;">
+    <div style="display:flex; gap:10px;">
       <a href="labels.html" target="_blank" class="btn secondary">🏷 Barcha yorliqlarni chop etish</a>
       <button class="btn" onclick="openModal()">➕ Yangi zapchast</button>
     </div>
@@ -80,14 +77,14 @@ function renderRows() {
       <td>${p.photo ? `<img class="thumb" src="${p.photo}">` : '<span class="muted">—</span>'}</td>
       <td>${p.barcode ? `<img class="thumb" src="https://api.qrserver.com/v1/create-qr-code/?size=80x80&data=${encodeURIComponent(p.barcode)}" title="${p.barcode}">` : '<span class="muted">—</span>'}</td>
       <td>${p.name}</td>
-      <td><strong>${p.code}</strong></td>
+      <td><span class="code-badge">${p.code}</span></td>
       <td>${p.barcode || '<span class="muted">—</span>'}</td>
       <td>${[p.has_length && 'Uzunlik', p.has_quantity && 'Soni', p.has_weight && 'Gram'].filter(Boolean).join(', ') || '—'}</td>
       <td style="white-space:nowrap">
         <button class="btn secondary small" onclick="editPart(${p.id})">Tahrirlash</button>
         <button class="btn danger small" onclick="delPart(${p.id})">O'chirish</button>
       </td>
-    </tr>`).join('') || '<tr><td colspan="7"><div class="empty-state"><div class="empty-icon">🔩</div>Hech narsa topilmadi</div></td></tr>';
+    </tr>`).join('') || '<tr><td colspan="7" class="muted">Hech narsa topilmadi</td></tr>';
 }
 
 async function openModal(part) {
@@ -120,42 +117,47 @@ function editPart(id) {
 async function savePart(e) {
   e.preventDefault();
   const id = document.getElementById('partId').value;
-  const type = id ? 'edit' : 'create';
-  await withPin(type, async (pin) => {
-    const fd = new FormData();
-    fd.append('name', document.getElementById('pName').value);
-    fd.append('code', document.getElementById('pCode').value);
-    fd.append('barcode', document.getElementById('pBarcode').value);
-    fd.append('has_length', document.getElementById('pLength').checked);
-    fd.append('has_quantity', document.getElementById('pQuantity').checked);
-    fd.append('has_weight', document.getElementById('pWeight').checked);
-    fd.append('pin', pin);
-    const file = document.getElementById('pPhoto').files[0];
-    if (file) fd.append('photo', file);
-    try {
-      if (id) {
-        await fetch('/api/parts/' + id, { method: 'PUT', body: fd }).then(r => { if (!r.ok) return r.json().then(j => { throw new Error(j.error); }); });
-      } else {
-        await fetch('/api/parts', { method: 'POST', body: fd }).then(r => { if (!r.ok) return r.json().then(j => { throw new Error(j.error); }); });
-      }
-      toast('Saqlandi');
-      closeModal();
-      load();
-    } catch (err) {
-      toast(err.message);
+  if (id) {
+    const ok = await askConfirmCode(
+      "✏️ Tahrirlashni tasdiqlash",
+      "O'zgarishlarni saqlash uchun quyidagi kodni kiriting"
+    );
+    if (!ok) return false;
+  }
+  const fd = new FormData();
+  fd.append('name', document.getElementById('pName').value);
+  fd.append('code', document.getElementById('pCode').value);
+  fd.append('barcode', document.getElementById('pBarcode').value);
+  fd.append('has_length', document.getElementById('pLength').checked);
+  fd.append('has_quantity', document.getElementById('pQuantity').checked);
+  fd.append('has_weight', document.getElementById('pWeight').checked);
+  const file = document.getElementById('pPhoto').files[0];
+  if (file) fd.append('photo', file);
+  try {
+    if (id) {
+      await fetch('/api/parts/' + id, { method: 'PUT', body: fd }).then(r => { if (!r.ok) return r.json().then(j => { throw new Error(j.error); }); });
+    } else {
+      await fetch('/api/parts', { method: 'POST', body: fd }).then(r => { if (!r.ok) return r.json().then(j => { throw new Error(j.error); }); });
     }
-  });
+    toast('Saqlandi');
+    closeModal();
+    load();
+  } catch (err) {
+    toast(err.message);
+  }
   return false;
 }
 
 async function delPart(id) {
-  if (!confirm('Ushbu zapchastni o\'chirishni tasdiqlaysizmi?')) return;
-  await withPin('delete', async (pin) => {
-    await fetch('/api/parts/' + id, { method: 'DELETE', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ pin }) })
-      .then(r => { if (!r.ok) return r.json().then(j => { throw new Error(j.error); }); });
-    toast('O\'chirildi');
-    load();
-  });
+  const part = parts.find(p => p.id === id);
+  const ok = await askConfirmCode(
+    "🗑 Zapchastni o'chirish",
+    `"${part ? part.name : ''}" o'chiriladi. Bu amalni bekor qilib bo'lmaydi.`
+  );
+  if (!ok) return;
+  await api('/api/parts/' + id, { method: 'DELETE' });
+  toast('O\'chirildi');
+  load();
 }
 
 load();

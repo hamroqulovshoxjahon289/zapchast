@@ -2,16 +2,14 @@
 <html lang="uz">
 <head>
 <meta charset="UTF-8">
-<script>(function(){var t=localStorage.getItem("theme")||"dark";document.documentElement.setAttribute("data-theme",t);})();</script>
 <title>Kategoriyalar</title>
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<link rel="icon" href="assets/logo.png">
 <link rel="stylesheet" href="css/style.css">
 </head>
 <body>
 <div class="topbar">
-  <h1><img src="assets/logo.png" class="logo" alt="logo"> <span>Temurshox mebel</span></h1>
-  <div class="topbar-right"><div class="nav" id="nav"></div><button class="theme-toggle" id="themeToggle" onclick="toggleTheme()" title="Rejimni almashtirish">☀️</button></div>
+  <h1>🪚 Temurshox mebel</h1>
+  <div class="nav" id="nav"></div>
 </div>
 <div class="container">
   <div class="card">
@@ -46,28 +44,22 @@ async function load() {
 async function addCategory() {
   const name = document.getElementById('newName').value.trim();
   if (!name) return toast('Nomini kiriting');
-  await withPin('create', async (pin) => {
-    await api('/api/categories', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ name, pin }) });
-    document.getElementById('newName').value = '';
-    toast('Qo\'shildi');
-    load();
-  });
+  await api('/api/categories', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ name }) });
+  document.getElementById('newName').value = '';
+  toast('Qo\'shildi');
+  load();
 }
 
 async function rename(id, name) {
-  await withPin('edit', async (pin) => {
-    await api('/api/categories/' + id, { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ name, pin }) });
-    toast('Saqlandi');
-  });
+  await api('/api/categories/' + id, { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ name }) });
+  toast('Saqlandi');
 }
 
 async function del(id) {
   if (!confirm('Kategoriyani o\'chirishni tasdiqlaysizmi? (bog\'liq modellar ham o\'chadi)')) return;
-  await withPin('delete', async (pin) => {
-    await api('/api/categories/' + id, { method: 'DELETE', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ pin }) });
-    toast('O\'chirildi');
-    load();
-  });
+  await api('/api/categories/' + id, { method: 'DELETE' });
+  toast('O\'chirildi');
+  load();
 }
 
 load();

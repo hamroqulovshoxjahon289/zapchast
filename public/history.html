@@ -2,23 +2,18 @@
 <html lang="uz">
 <head>
 <meta charset="UTF-8">
-<script>(function(){var t=localStorage.getItem("theme")||"dark";document.documentElement.setAttribute("data-theme",t);})();</script>
 <title>Tarix</title>
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<link rel="icon" href="assets/logo.png">
 <link rel="stylesheet" href="css/style.css">
 </head>
 <body>
 <div class="topbar">
-  <h1><img src="assets/logo.png" class="logo" alt="logo"> <span>Temurshox mebel</span></h1>
-  <div class="topbar-right"><div class="nav" id="nav"></div><button class="theme-toggle" id="themeToggle" onclick="toggleTheme()" title="Rejimni almashtirish">☀️</button></div>
+  <h1>🪚 Temurshox mebel</h1>
+  <div class="nav" id="nav"></div>
 </div>
 <div class="container">
   <div class="card">
-    <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:10px;">
-      <h2 style="margin:0">🕓 Amallar tarixi</h2>
-      <a href="/api/export/history.xlsx" class="btn secondary small">📥 Excelga yuklab olish</a>
-    </div>
+    <h2>🕓 Amallar tarixi</h2>
     <table>
       <thead><tr><th>Sana</th><th>Amal</th><th>Nima</th><th>Tafsilot</th></tr></thead>
       <tbody id="rows"><tr><td colspan="4" class="muted">Yuklanmoqda...</td></tr></tbody>
@@ -29,15 +24,15 @@
 <script src="js/common.js"></script>
 <script>
 renderNav('history.html');
-const actionMap = { create: 'Qo\'shildi', update: 'Tahrirlandi', delete: 'O\'chirildi', archive: 'Arxivlandi', start: 'Boshlandi', finish: 'Yakunlandi', stock_in: 'Kirim', stock_out: 'Chiqim (olindi)' };
-const entityMap = { category: 'Kategoriya', part: 'Zapchast', model: 'Model', worker: 'Ishchi', session: 'Terish sessiyasi', cargo_item: 'Yuk narsasi', loading_session: 'Yuklash sessiyasi', settings: 'Sozlamalar', warehouse_item: 'Ombor zapchasti' };
+const actionMap = { create: 'Qo\'shildi', update: 'Tahrirlandi', delete: 'O\'chirildi', start: 'Boshlandi', finish: 'Yakunlandi' };
+const entityMap = { category: 'Kategoriya', part: 'Zapchast', model: 'Model', worker: 'Ishchi', session: 'Terish sessiyasi' };
 
 async function load() {
   const rows = await api('/api/history');
   document.getElementById('rows').innerHTML = rows.map(r => `
     <tr>
       <td>${fmtDate(r.created_at)}</td>
-      <td><span class="badge ${r.action === 'delete' ? 'bad' : r.action === 'archive' ? 'info' : r.action === 'create' ? 'ok' : 'pending'}">${actionMap[r.action] || r.action}</span></td>
+      <td><span class="badge ${r.action === 'delete' ? 'bad' : r.action === 'create' ? 'ok' : 'pending'}">${actionMap[r.action] || r.action}</span></td>
       <td>${entityMap[r.entity] || r.entity}</td>
       <td class="muted">${r.details || ''}</td>
     </tr>`).join('') || '<tr><td colspan="4" class="muted">Tarix bo\'sh</td></tr>';

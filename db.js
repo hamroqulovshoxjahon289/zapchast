@@ -1,139 +1,122 @@
-const fs = require('fs');
+const Database = require('better-sqlite3');
 const path = require('path');
-const bcrypt = require('bcryptjs');
-const { nanoid } = require('nanoid');
+const fs = require('fs');
 
-const DATA_DIR = path.join(__dirname, 'data');
-const FILE = path.join(DATA_DIR, 'db.json');
+const dataDir = path.join(__dirname, 'data');
+if (!fs.existsSync(dataDir)) fs.mkdirSync(dataDir, { recursive: true });
 
-function makeStation(name) {
-  return { id: nanoid(8), name };
-}
+const db = new Database(path.join(dataDir, 'app.db'));
+db.pragma('journal_mode = WAL');
 
-function defaultData() {
-  const laboLine = {
-    id: nanoid(8),
-    name: 'Labo',
-    group: 'labo',
-    stations: [makeStation('Yuklash')],
-    nextLineId: null,
-    replenish: false,
-    createdAt: Date.now()
-  };
-  const korpusLine = {
-    id: nanoid(8),
-    name: 'Korpus',
-    group: 'korpus',
-    stations: [makeStation('Ara'), makeStation('Kromka'), makeStation('Prisadka'), makeStation('Upakovka')],
-    nextLineId: laboLine.id,
-    replenish: true,
-    createdAt: Date.now()
-  };
-  const fasadLine = {
-    id: nanoid(8),
-    name: 'Fasad',
-    group: 'fasad',
-    stations: [makeStation('Ishlov berish')],
-    nextLineId: laboLine.id,
-    replenish: false,
-    createdAt: Date.now()
-  };
+db.exec(`
+CREATE TABLE IF NOT EXISTS categories (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  name TEXT NOT NULL,
+  created_at TEXT DEFAULT (datetime('now'))
+);
 
-  return {
-    users: [
-      {
-        id: nanoid(8),
-        username: 'admin',
-        passwordHash: bcrypt.hashSync('admin123', 8),
-        name: 'Bosh Admin',
-        role: 'admin',
-        stationAccess: [],
-        createdAt: Date.now()
-      }
-    ],
-    lines: [korpusLine, fasadLine, laboLine],
-    orders: [],
-    complaints: [],
-    notifications: [],
-    archivedOrders: [],
-    customers: [],
-    templates: [],
-    auditLog: [],
-    dayStarted: false,
-    dayStartedAt: null
-  };
-}
+CREATE TABLE IF NOT EXISTS parts (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  name TEXT NOT NULL,
+  code TEXT UNIQUE NOT NULL,
+  barcode TEXT,
+  has_length INTEGER DEFAULT 0,
+  has_quantity INTEGER DEFAULT 0,
+  has_weight INTEGER DEFAULT 0,
+  photo TEXT,
+  created_at TEXT DEFAULT (datetime('now')),
+  updated_at TEXT DEFAULT (datetime('now'))
+);
 
-function migrate(data) {
-  let changed = false;
+CREATE TABLE IF NOT EXISTS models (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  category_id INTEGER NOT NULL,
+  name TEXT NOT NULL,
+  code TEXT,
+  created_at TEXT DEFAULT (datetime('now')),
+  FOREIGN KEY(category_id) REFERENCES categories(id) ON DELETE CASCADE
+);
 
-  if (!data.complaints) { data.complaints = []; changed = true; }
-  if (!data.notifications) { data.notifications = []; changed = true; }
-  if (!data.archivedOrders) { data.archivedOrders = []; changed = true; }
-  if (!data.customers) { data.customers = []; changed = true; }
-  if (!data.templates) { data.templates = []; changed = true; }
-  if (!data.auditLog) { data.auditLog = []; changed = true; }
+CREATE TABLE IF NOT EXISTS model_parts (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  model_id INTEGER NOT NULL,
+  part_id INTEGER NOT NULL,
+  quantity REAL,
+  weight REAL,
+  length REAL,
+  active INTEGER DEFAULT 1,
+  FOREIGN KEY(model_id) REFERENCES models(id) ON DELETE CASCADE,
+  FOREIGN KEY(part_id) REFERENCES parts(id) ON DELETE CASCADE
+);
 
-  if (!data.lines) {
-    // Eski (labo-asosidagi) formatdan yangi liniya tizimiga o'tish
-    const laboLine = {
-      id: nanoid(8), name: 'Labo', group: 'labo',
-      stations: [makeStation('Yuklash')], nextLineId: null, replenish: false, createdAt: Date.now()
-    };
-    const korpusLine = {
-      id: nanoid(8), name: 'Korpus', group: 'korpus',
-      stations: [makeStation('Ara'), makeStation('Kromka'), makeStation('Prisadka'), makeStation('Upakovka')],
-      nextLineId: laboLine.id, replenish: true, createdAt: Date.now()
-    };
-    const fasadLine = {
-      id: nanoid(8), name: 'Fasad', group: 'fasad',
-      stations: [makeStation('Ishlov berish')], nextLineId: laboLine.id, replenish: false, createdAt: Date.now()
-    };
-    data.lines = [korpusLine, fasadLine, laboLine];
-    (data.orders || []).forEach(o => {
-      o.lineId = korpusLine.id;
-      o.stationIndex = 0;
-      o.done = false;
-      delete o.laboId;
-      delete o.status;
-    });
-    data.labos = undefined;
-    delete data.labos;
-    changed = true;
-  }
+CREATE TABLE IF NOT EXISTS workers (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  name TEXT NOT NULL,
+  phone TEXT,
+  created_at TEXT DEFAULT (datetime('now'))
+);
 
-  data.orders.forEach(o => {
-    if (o.assignedUserId === undefined) { o.assignedUserId = null; changed = true; }
-    if (o.stationIndex === undefined) { o.stationIndex = 0; changed = true; }
-    if (o.done === undefined) { o.done = false; changed = true; }
-    if (o.completedStations === undefined) { o.completedStations = []; changed = true; }
-    if (o.parentOrderId === undefined) { o.parentOrderId = null; changed = true; }
-    if (o.stationEnteredAt === undefined) { o.stationEnteredAt = o.createdAt || Date.now(); changed = true; }
-    if (o.urgent === undefined) { o.urgent = false; changed = true; }
-    if (o.customerId === undefined) { o.customerId = null; changed = true; }
+CREATE TABLE IF NOT EXISTS picking_sessions (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  worker_id INTEGER NOT NULL,
+  model_id INTEGER NOT NULL,
+  status TEXT DEFAULT 'active',
+  created_at TEXT DEFAULT (datetime('now')),
+  finished_at TEXT,
+  FOREIGN KEY(worker_id) REFERENCES workers(id),
+  FOREIGN KEY(model_id) REFERENCES models(id)
+);
+
+CREATE TABLE IF NOT EXISTS picking_items (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  session_id INTEGER NOT NULL,
+  model_part_id INTEGER NOT NULL,
+  status TEXT DEFAULT 'pending', -- pending | scanned | manual_x
+  scanned_at TEXT,
+  FOREIGN KEY(session_id) REFERENCES picking_sessions(id) ON DELETE CASCADE,
+  FOREIGN KEY(model_part_id) REFERENCES model_parts(id)
+);
+
+CREATE TABLE IF NOT EXISTS history_log (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  action TEXT NOT NULL,
+  entity TEXT NOT NULL,
+  details TEXT,
+  actor TEXT,
+  created_at TEXT DEFAULT (datetime('now'))
+);
+`);
+
+// Eski bazalarda 'models' jadvalida 'code' ustuni bo'lmasligi mumkin — qo'shib qo'yamiz.
+try { db.exec(`ALTER TABLE models ADD COLUMN code TEXT`); } catch (e) { /* ustun allaqachon bor */ }
+
+// Eski bazalarda 'model_parts' jadvalida 'active' ustuni bo'lmasligi mumkin.
+// Bu ustun modeldan zapchast "olib tashlanganda" uni butunlay o'chirmay,
+// faqat nofaol qilib qo'yish uchun kerak — shunda yakunlangan terish
+// jarayonlarining tarixi (FOREIGN KEY) buzilmaydi.
+try { db.exec(`ALTER TABLE model_parts ADD COLUMN active INTEGER DEFAULT 1`); } catch (e) { /* ustun allaqachon bor */ }
+
+// Kod berilmagan (eski) modellarga avtomatik 4 xonali unikal kod tayinlaymiz.
+(function backfillModelCodes() {
+  const missing = db.prepare(`SELECT id FROM models WHERE code IS NULL OR TRIM(code) = ''`).all();
+  if (!missing.length) return;
+  const used = new Set(
+    db.prepare(`SELECT code FROM models WHERE code IS NOT NULL AND TRIM(code) != ''`).all()
+      .map(r => parseInt(r.code, 10)).filter(n => !isNaN(n))
+  );
+  const assign = db.prepare('UPDATE models SET code=? WHERE id=?');
+  let next = 1;
+  missing.forEach(row => {
+    while (used.has(next) && next <= 9999) next++;
+    const code = String(next).padStart(4, '0');
+    assign.run(code, row.id);
+    used.add(next);
   });
+})();
 
-  data.users.forEach(u => {
-    if (u.stationAccess === undefined) { u.stationAccess = []; changed = true; }
-  });
-
-  return changed;
+function logHistory(action, entity, details, actor) {
+  db.prepare('INSERT INTO history_log (action, entity, details, actor) VALUES (?,?,?,?)')
+    .run(action, entity, typeof details === 'string' ? details : JSON.stringify(details), actor || 'admin');
 }
 
-function load() {
-  if (!fs.existsSync(FILE)) {
-    save(defaultData());
-  }
-  const raw = fs.readFileSync(FILE, 'utf-8');
-  const data = JSON.parse(raw);
-  const changed = migrate(data);
-  if (changed) save(data);
-  return data;
-}
-
-function save(data) {
-  if (!fs.existsSync(DATA_DIR)) fs.mkdirSync(DATA_DIR, { recursive: true });
-  fs.writeFileSync(FILE, JSON.stringify(data, null, 2));
-}
-
-module.exports = { load, save, nanoid, bcrypt };
+module.exports = { db, logHistory };

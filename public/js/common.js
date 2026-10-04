@@ -17,204 +17,73 @@ function toast(msg) {
 
 function renderNav(active) {
   const items = [
-    ['index.html', 'Bosh sahifa', '🏠'],
-    ['categories.html', 'Kategoriyalar', '🗂️'],
-    ['parts.html', 'Zapchastlar', '🔩'],
-    ['models.html', 'Modellar', '🛋️'],
-    ['workers.html', 'Ishchilar', '👷'],
-    ['pick.html', 'Terish jarayoni', '📋'],
-    ['cargo-items.html', 'Yuk narsalari', '📦'],
-    ['loading.html', 'Yuklash jarayoni', '🚚'],
-    ['warehouse.html', 'Ombor', '🏬'],
-    ['stats.html', 'Statistika', '📊'],
-    ['history.html', 'Tarix', '🕓'],
-    ['settings.html', 'Sozlamalar', '⚙️'],
+    ['index.html', 'Bosh sahifa'],
+    ['categories.html', 'Kategoriyalar'],
+    ['parts.html', 'Zapchastlar'],
+    ['models.html', 'Modellar'],
+    ['workers.html', 'Ishchilar'],
+    ['pick.html', 'Terish jarayoni'],
+    ['history.html', 'Tarix'],
   ];
   const nav = document.getElementById('nav');
   if (!nav) return;
-  nav.innerHTML = items.map(([href, label, icon]) =>
-    `<a href="${href}" class="${active === href ? 'active' : ''}">${icon} ${label}</a>`
+  nav.innerHTML = items.map(([href, label]) =>
+    `<a href="${href}" class="${active === href ? 'active' : ''}">${label}</a>`
   ).join('');
-  initMobileNav(nav);
 }
 
-// ---- Mobil hamburger-menyu: navigatsiya telefonda yo'qolib qolmasligi uchun ----
-function initMobileNav(nav) {
-  const topbarRight = nav.closest('.topbar-right');
-  if (!topbarRight) return;
-  let toggle = document.getElementById('navToggle');
-  if (!toggle) {
-    toggle = document.createElement('button');
-    toggle.id = 'navToggle';
-    toggle.className = 'nav-toggle';
-    toggle.type = 'button';
-    toggle.setAttribute('aria-label', 'Menyuni ochish');
-    toggle.innerHTML = '☰';
-    topbarRight.insertBefore(toggle, nav);
-    toggle.addEventListener('click', () => {
-      const open = nav.classList.toggle('open');
-      toggle.innerHTML = open ? '✕' : '☰';
+// Tahrirlash yoki o'chirish kabi muhim amallar uchun tasodifiy 4 xonali
+// tasdiqlash kodi ko'rsatadi va foydalanuvchi shu kodni kiritgandan keyingina
+// amalni davom ettiradi. resolve(true) — tasdiqlandi, resolve(false) — bekor qilindi.
+function askConfirmCode(title, subtitle) {
+  return new Promise((resolve) => {
+    const code = String(Math.floor(1000 + Math.random() * 9000));
+    const overlay = document.createElement('div');
+    overlay.className = 'modal-overlay show';
+    overlay.innerHTML = `
+      <div class="modal confirm-modal">
+        <div class="confirm-icon">🔐</div>
+        <h3>${title}</h3>
+        <p class="muted" style="margin-top:-4px">${subtitle || 'Amalni tasdiqlash uchun quyidagi kodni kiriting'}</p>
+        <div class="confirm-code-display">${code}</div>
+        <input id="confirmCodeInput" maxlength="4" inputmode="numeric" placeholder="4 xonali kodni kiriting" class="confirm-code-input" autocomplete="off">
+        <div class="confirm-error" id="confirmCodeError"></div>
+        <div style="display:flex; gap:10px; margin-top:14px;">
+          <button type="button" class="btn danger" id="confirmCodeOk">✔ Tasdiqlash</button>
+          <button type="button" class="btn secondary" id="confirmCodeCancel">Bekor qilish</button>
+        </div>
+      </div>`;
+    document.body.appendChild(overlay);
+
+    const input = overlay.querySelector('#confirmCodeInput');
+    const err = overlay.querySelector('#confirmCodeError');
+    setTimeout(() => input.focus(), 50);
+
+    function finish(result) {
+      overlay.remove();
+      resolve(result);
+    }
+    overlay.querySelector('#confirmCodeCancel').onclick = () => finish(false);
+    overlay.querySelector('#confirmCodeOk').onclick = () => {
+      if (input.value.trim() === code) {
+        finish(true);
+      } else {
+        err.textContent = "Kod noto'g'ri, qaytadan urinib ko'ring";
+        input.value = '';
+        input.classList.add('shake');
+        setTimeout(() => input.classList.remove('shake'), 400);
+        input.focus();
+      }
+    };
+    input.addEventListener('keydown', (e) => {
+      if (e.key === 'Enter') { e.preventDefault(); overlay.querySelector('#confirmCodeOk').click(); }
+      if (e.key === 'Escape') finish(false);
     });
-    document.addEventListener('click', (e) => {
-      if (!nav.classList.contains('open')) return;
-      if (nav.contains(e.target) || toggle.contains(e.target)) return;
-      nav.classList.remove('open');
-      toggle.innerHTML = '☰';
-    });
-  }
-  nav.addEventListener('click', (e) => {
-    if (e.target.tagName === 'A') { nav.classList.remove('open'); toggle.innerHTML = '☰'; }
+    overlay.addEventListener('click', (e) => { if (e.target === overlay) finish(false); });
   });
 }
 
 function fmtDate(s) {
   if (!s) return '';
-  // Baza vaqtni +5 soat (Toshkent) bilan saqlaydi, shuning uchun to'g'ridan-to'g'ri ko'rsatamiz
-  const [datePart, timePart] = s.split(' ');
-  if (!datePart || !timePart) return s;
-  const [y, m, d] = datePart.split('-');
-  return `${d}.${m}.${y} ${timePart.slice(0, 5)}`;
-}
-
-// ---- Tungi/kunduzgi rejim (dark/light theme) ----
-function initTheme() {
-  const saved = localStorage.getItem('theme') || 'dark';
-  document.documentElement.setAttribute('data-theme', saved);
-  const btn = document.getElementById('themeToggle');
-  if (btn) btn.textContent = saved === 'light' ? '🌙' : '☀️';
-}
-
-function toggleTheme() {
-  const current = document.documentElement.getAttribute('data-theme') || 'dark';
-  const next = current === 'light' ? 'dark' : 'light';
-  document.documentElement.setAttribute('data-theme', next);
-  localStorage.setItem('theme', next);
-  const btn = document.getElementById('themeToggle');
-  if (btn) btn.textContent = next === 'light' ? '🌙' : '☀️';
-}
-
-initTheme();
-
-// ---- Termal printer / A4 chop etish rejimi (yorliqlar uchun umumiy) ----
-function initThermalControls(controlsContainerId, gridId) {
-  const container = document.getElementById(controlsContainerId);
-  container.insertAdjacentHTML('beforeend', `
-    <div style="margin-top:12px; display:flex; gap:16px; align-items:center; flex-wrap:wrap;">
-      <label style="display:flex; align-items:center; gap:6px; text-transform:none; font-weight:400; font-size:14px; margin:0;">
-        <input type="radio" name="printMode" value="a4" checked onchange="applyPrintMode('${gridId}')" style="width:auto; margin:0;"> A4 varaqda (bir necha ustun)
-      </label>
-      <label style="display:flex; align-items:center; gap:6px; text-transform:none; font-weight:400; font-size:14px; margin:0;">
-        <input type="radio" name="printMode" value="thermal" onchange="applyPrintMode('${gridId}')" style="width:auto; margin:0;"> Termal printer (bitta-bitta)
-      </label>
-      <span id="thermalSizeInputs" style="display:none; gap:6px; align-items:center;">
-        <input type="number" id="thermalW" value="40" style="width:64px; margin:0" onchange="applyPrintMode('${gridId}')"> x
-        <input type="number" id="thermalH" value="30" style="width:64px; margin:0" onchange="applyPrintMode('${gridId}')"> mm
-      </span>
-    </div>
-  `);
-}
-
-function applyPrintMode(gridId) {
-  const mode = document.querySelector('input[name="printMode"]:checked').value;
-  const sizeInputs = document.getElementById('thermalSizeInputs');
-  if (sizeInputs) sizeInputs.style.display = mode === 'thermal' ? 'inline-flex' : 'none';
-  let styleTag = document.getElementById('dynamicPrintStyle');
-  if (!styleTag) {
-    styleTag = document.createElement('style');
-    styleTag.id = 'dynamicPrintStyle';
-    document.head.appendChild(styleTag);
-  }
-  if (mode === 'thermal') {
-    const w = document.getElementById('thermalW').value || 40;
-    const h = document.getElementById('thermalH').value || 30;
-    styleTag.textContent = `
-      @page { size: ${w}mm ${h}mm; margin: 0; }
-      #${gridId} { display: block !important; }
-      #${gridId} .label-card {
-        width: ${w}mm; height: ${h}mm;
-        display: flex; flex-direction: column; align-items: center; justify-content: center;
-        page-break-after: always; border: none !important;
-        box-sizing: border-box; margin: 0 auto;
-      }
-    `;
-  } else {
-    styleTag.textContent = '';
-  }
-}
-
-// ---- PIN kod tizimi (qo'shish/tahrirlash/o'chirish uchun) ----
-const pinLabels = { create: 'Qo\'shish', edit: 'Tahrirlash', delete: 'O\'chirish' };
-
-function ensurePinModal() {
-  let overlay = document.getElementById('pinOverlay');
-  if (overlay) return overlay;
-  overlay = document.createElement('div');
-  overlay.id = 'pinOverlay';
-  overlay.className = 'modal-overlay';
-  overlay.innerHTML = `
-    <div class="modal pin-modal">
-      <h3 id="pinTitle">Kodni kiriting</h3>
-      <p class="muted" id="pinSub"></p>
-      <input id="pinInput" type="password" maxlength="4" inputmode="numeric" autocomplete="off" placeholder="••••">
-      <p id="pinError" class="pin-error" style="display:none">Kod noto'g'ri, qayta urinib ko'ring</p>
-      <div style="display:flex; gap:10px; margin-top:16px; justify-content:center;">
-        <button class="btn" id="pinOk">Tasdiqlash</button>
-        <button class="btn secondary" id="pinCancel">Bekor qilish</button>
-      </div>
-    </div>`;
-  document.body.appendChild(overlay);
-  return overlay;
-}
-
-function askPin(type) {
-  const overlay = ensurePinModal();
-  document.getElementById('pinTitle').textContent = `${pinLabels[type] || ''} uchun kod`;
-  document.getElementById('pinSub').textContent = '4 xonali tasdiqlash kodini kiriting';
-  const input = document.getElementById('pinInput');
-  const errorEl = document.getElementById('pinError');
-  input.value = '';
-  errorEl.style.display = 'none';
-  overlay.classList.add('show');
-  setTimeout(() => input.focus(), 60);
-
-  return new Promise((resolve) => {
-    const okBtn = document.getElementById('pinOk');
-    const cancelBtn = document.getElementById('pinCancel');
-    function cleanup(val) {
-      overlay.classList.remove('show');
-      okBtn.removeEventListener('click', onOk);
-      cancelBtn.removeEventListener('click', onCancel);
-      input.removeEventListener('keydown', onKey);
-      resolve(val);
-    }
-    function onOk() {
-      const val = input.value.trim();
-      if (val.length !== 4) { errorEl.textContent = '4 xonali kod kiriting'; errorEl.style.display = 'block'; return; }
-      cleanup(val);
-    }
-    function onCancel() { cleanup(null); }
-    function onKey(e) { if (e.key === 'Enter') onOk(); if (e.key === 'Escape') onCancel(); }
-    okBtn.addEventListener('click', onOk);
-    cancelBtn.addEventListener('click', onCancel);
-    input.addEventListener('keydown', onKey);
-  });
-}
-
-// Foydalanuvchidan kod so'raydi, serverda tekshiradi, to'g'ri bo'lsa amalni bajaradi.
-// type: 'create' | 'edit' | 'delete'
-async function withPin(type, action) {
-  const pin = await askPin(type);
-  if (pin === null) return false;
-  try {
-    const r = await fetch('/api/settings/verify', {
-      method: 'POST', headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ type, code: pin })
-    });
-    const data = await r.json();
-    if (!data.ok) { toast('Kod noto\'g\'ri'); return false; }
-  } catch (e) {
-    toast('Tekshirishda xatolik'); return false;
-  }
-  await action(pin);
-  return true;
+  return s.replace('T', ' ').slice(0, 16);
 }
