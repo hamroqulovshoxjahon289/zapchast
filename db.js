@@ -1,201 +1,139 @@
-const Database = require('better-sqlite3');
-const path = require('path');
 const fs = require('fs');
+const path = require('path');
+const bcrypt = require('bcryptjs');
+const { nanoid } = require('nanoid');
 
-const dataDir = path.join(__dirname, 'data');
-if (!fs.existsSync(dataDir)) fs.mkdirSync(dataDir, { recursive: true });
+const DATA_DIR = path.join(__dirname, 'data');
+const FILE = path.join(DATA_DIR, 'db.json');
 
-const db = new Database(path.join(dataDir, 'app.db'));
-db.pragma('journal_mode = WAL');
+function makeStation(name) {
+  return { id: nanoid(8), name };
+}
 
-db.exec(`
-CREATE TABLE IF NOT EXISTS categories (
-  id INTEGER PRIMARY KEY AUTOINCREMENT,
-  name TEXT NOT NULL,
-  active INTEGER DEFAULT 1,
-  created_at TEXT DEFAULT (datetime('now', '+5 hours'))
-);
+function defaultData() {
+  const laboLine = {
+    id: nanoid(8),
+    name: 'Labo',
+    group: 'labo',
+    stations: [makeStation('Yuklash')],
+    nextLineId: null,
+    replenish: false,
+    createdAt: Date.now()
+  };
+  const korpusLine = {
+    id: nanoid(8),
+    name: 'Korpus',
+    group: 'korpus',
+    stations: [makeStation('Ara'), makeStation('Kromka'), makeStation('Prisadka'), makeStation('Upakovka')],
+    nextLineId: laboLine.id,
+    replenish: true,
+    createdAt: Date.now()
+  };
+  const fasadLine = {
+    id: nanoid(8),
+    name: 'Fasad',
+    group: 'fasad',
+    stations: [makeStation('Ishlov berish')],
+    nextLineId: laboLine.id,
+    replenish: false,
+    createdAt: Date.now()
+  };
 
-CREATE TABLE IF NOT EXISTS parts (
-  id INTEGER PRIMARY KEY AUTOINCREMENT,
-  name TEXT NOT NULL,
-  code TEXT UNIQUE NOT NULL,
-  barcode TEXT,
-  has_length INTEGER DEFAULT 0,
-  has_quantity INTEGER DEFAULT 0,
-  has_weight INTEGER DEFAULT 0,
-  photo TEXT,
-  active INTEGER DEFAULT 1,
-  created_at TEXT DEFAULT (datetime('now', '+5 hours')),
-  updated_at TEXT DEFAULT (datetime('now', '+5 hours'))
-);
+  return {
+    users: [
+      {
+        id: nanoid(8),
+        username: 'admin',
+        passwordHash: bcrypt.hashSync('admin123', 8),
+        name: 'Bosh Admin',
+        role: 'admin',
+        stationAccess: [],
+        createdAt: Date.now()
+      }
+    ],
+    lines: [korpusLine, fasadLine, laboLine],
+    orders: [],
+    complaints: [],
+    notifications: [],
+    archivedOrders: [],
+    customers: [],
+    templates: [],
+    auditLog: [],
+    dayStarted: false,
+    dayStartedAt: null
+  };
+}
 
-CREATE TABLE IF NOT EXISTS models (
-  id INTEGER PRIMARY KEY AUTOINCREMENT,
-  category_id INTEGER NOT NULL,
-  name TEXT NOT NULL,
-  active INTEGER DEFAULT 1,
-  created_at TEXT DEFAULT (datetime('now', '+5 hours')),
-  FOREIGN KEY(category_id) REFERENCES categories(id) ON DELETE CASCADE
-);
+function migrate(data) {
+  let changed = false;
 
-CREATE TABLE IF NOT EXISTS model_parts (
-  id INTEGER PRIMARY KEY AUTOINCREMENT,
-  model_id INTEGER NOT NULL,
-  part_id INTEGER NOT NULL,
-  quantity REAL,
-  weight REAL,
-  length REAL,
-  active INTEGER DEFAULT 1,
-  FOREIGN KEY(model_id) REFERENCES models(id) ON DELETE CASCADE,
-  FOREIGN KEY(part_id) REFERENCES parts(id) ON DELETE CASCADE
-);
+  if (!data.complaints) { data.complaints = []; changed = true; }
+  if (!data.notifications) { data.notifications = []; changed = true; }
+  if (!data.archivedOrders) { data.archivedOrders = []; changed = true; }
+  if (!data.customers) { data.customers = []; changed = true; }
+  if (!data.templates) { data.templates = []; changed = true; }
+  if (!data.auditLog) { data.auditLog = []; changed = true; }
 
-CREATE TABLE IF NOT EXISTS workers (
-  id INTEGER PRIMARY KEY AUTOINCREMENT,
-  name TEXT NOT NULL,
-  phone TEXT,
-  created_at TEXT DEFAULT (datetime('now', '+5 hours'))
-);
-
-CREATE TABLE IF NOT EXISTS picking_sessions (
-  id INTEGER PRIMARY KEY AUTOINCREMENT,
-  worker_id INTEGER NOT NULL,
-  model_id INTEGER NOT NULL,
-  status TEXT DEFAULT 'active',
-  created_at TEXT DEFAULT (datetime('now', '+5 hours')),
-  finished_at TEXT,
-  FOREIGN KEY(worker_id) REFERENCES workers(id),
-  FOREIGN KEY(model_id) REFERENCES models(id)
-);
-
-CREATE TABLE IF NOT EXISTS picking_items (
-  id INTEGER PRIMARY KEY AUTOINCREMENT,
-  session_id INTEGER NOT NULL,
-  model_part_id INTEGER NOT NULL,
-  status TEXT DEFAULT 'pending', -- pending | scanned | manual_x
-  scanned_at TEXT,
-  FOREIGN KEY(session_id) REFERENCES picking_sessions(id) ON DELETE CASCADE,
-  FOREIGN KEY(model_part_id) REFERENCES model_parts(id)
-);
-
-CREATE TABLE IF NOT EXISTS history_log (
-  id INTEGER PRIMARY KEY AUTOINCREMENT,
-  action TEXT NOT NULL,
-  entity TEXT NOT NULL,
-  details TEXT,
-  actor TEXT,
-  created_at TEXT DEFAULT (datetime('now', '+5 hours'))
-);
-
-CREATE TABLE IF NOT EXISTS settings (
-  key TEXT PRIMARY KEY,
-  value TEXT
-);
-
--- ==== YUK (kuzovga ortish) tizimi ====
--- Umumiy yuk narsalari ro'yxati (krisha, bakavoy, polka, xdf va h.k.), har birida avtomatik QR/shtrix-kod
-CREATE TABLE IF NOT EXISTS cargo_items (
-  id INTEGER PRIMARY KEY AUTOINCREMENT,
-  name TEXT NOT NULL,
-  barcode TEXT UNIQUE,
-  active INTEGER DEFAULT 1,
-  created_at TEXT DEFAULT (datetime('now', '+5 hours'))
-);
-
--- Har bir yuk narsasi (upakovka) ichidagi detallar ro'yxati: nomi, o'lchami, soni
-CREATE TABLE IF NOT EXISTS cargo_item_details (
-  id INTEGER PRIMARY KEY AUTOINCREMENT,
-  cargo_item_id INTEGER NOT NULL,
-  name TEXT NOT NULL,
-  size TEXT,
-  quantity REAL,
-  sort_order INTEGER DEFAULT 0,
-  FOREIGN KEY(cargo_item_id) REFERENCES cargo_items(id) ON DELETE CASCADE
-);
-
--- Har bir modelga qaysi yuk narsalari kerakligi (krisha, bakavoy, polka, xdf tanlovi)
-CREATE TABLE IF NOT EXISTS model_cargo_items (
-  id INTEGER PRIMARY KEY AUTOINCREMENT,
-  model_id INTEGER NOT NULL,
-  cargo_item_id INTEGER NOT NULL,
-  active INTEGER DEFAULT 1,
-  FOREIGN KEY(model_id) REFERENCES models(id) ON DELETE CASCADE,
-  FOREIGN KEY(cargo_item_id) REFERENCES cargo_items(id) ON DELETE CASCADE
-);
-
-CREATE TABLE IF NOT EXISTS loading_sessions (
-  id INTEGER PRIMARY KEY AUTOINCREMENT,
-  model_id INTEGER NOT NULL,
-  status TEXT DEFAULT 'active',
-  created_at TEXT DEFAULT (datetime('now', '+5 hours')),
-  finished_at TEXT,
-  FOREIGN KEY(model_id) REFERENCES models(id)
-);
-
--- item_type: 'cargo' (krisha/bakavoy/polka/xdf...) yoki 'zapchast' (shu modelning zapchast qutisi)
-CREATE TABLE IF NOT EXISTS loading_items (
-  id INTEGER PRIMARY KEY AUTOINCREMENT,
-  loading_session_id INTEGER NOT NULL,
-  item_type TEXT NOT NULL,
-  name TEXT NOT NULL,
-  barcode TEXT,
-  cargo_item_id INTEGER,
-  status TEXT DEFAULT 'pending', -- pending | scanned
-  scanned_at TEXT,
-  FOREIGN KEY(loading_session_id) REFERENCES loading_sessions(id) ON DELETE CASCADE
-);
-
--- ==== OMBOR (firma ehtiyoji uchun umumiy zapchastlar, modelga bog'liq emas) ====
--- Masalan F25 kabi narsalar — har kim kelib QR-kodini skan qilsa, ombordan avtomatik 1 tasi ayriladi
-CREATE TABLE IF NOT EXISTS warehouse_items (
-  id INTEGER PRIMARY KEY AUTOINCREMENT,
-  name TEXT NOT NULL,
-  code TEXT UNIQUE NOT NULL,
-  barcode TEXT UNIQUE,
-  stock REAL DEFAULT 0,
-  min_threshold REAL DEFAULT 0,
-  active INTEGER DEFAULT 1,
-  created_at TEXT DEFAULT (datetime('now', '+5 hours'))
-);
-
-CREATE TABLE IF NOT EXISTS warehouse_log (
-  id INTEGER PRIMARY KEY AUTOINCREMENT,
-  warehouse_item_id INTEGER NOT NULL,
-  change_amount REAL NOT NULL,
-  type TEXT NOT NULL, -- kirim | chiqim
-  note TEXT,
-  created_at TEXT DEFAULT (datetime('now', '+5 hours')),
-  FOREIGN KEY(warehouse_item_id) REFERENCES warehouse_items(id) ON DELETE CASCADE
-);
-`);
-
-// Eski bazalarga (ilgari yaratilgan) "active" ustunini qo'shib qo'yamiz, agar mavjud bo'lmasa
-function ensureColumn(table, column, def) {
-  const cols = db.prepare(`PRAGMA table_info(${table})`).all();
-  if (!cols.some(c => c.name === column)) {
-    db.exec(`ALTER TABLE ${table} ADD COLUMN ${column} ${def}`);
+  if (!data.lines) {
+    // Eski (labo-asosidagi) formatdan yangi liniya tizimiga o'tish
+    const laboLine = {
+      id: nanoid(8), name: 'Labo', group: 'labo',
+      stations: [makeStation('Yuklash')], nextLineId: null, replenish: false, createdAt: Date.now()
+    };
+    const korpusLine = {
+      id: nanoid(8), name: 'Korpus', group: 'korpus',
+      stations: [makeStation('Ara'), makeStation('Kromka'), makeStation('Prisadka'), makeStation('Upakovka')],
+      nextLineId: laboLine.id, replenish: true, createdAt: Date.now()
+    };
+    const fasadLine = {
+      id: nanoid(8), name: 'Fasad', group: 'fasad',
+      stations: [makeStation('Ishlov berish')], nextLineId: laboLine.id, replenish: false, createdAt: Date.now()
+    };
+    data.lines = [korpusLine, fasadLine, laboLine];
+    (data.orders || []).forEach(o => {
+      o.lineId = korpusLine.id;
+      o.stationIndex = 0;
+      o.done = false;
+      delete o.laboId;
+      delete o.status;
+    });
+    data.labos = undefined;
+    delete data.labos;
+    changed = true;
   }
-}
-ensureColumn('categories', 'active', 'INTEGER DEFAULT 1');
-ensureColumn('parts', 'active', 'INTEGER DEFAULT 1');
-ensureColumn('models', 'active', 'INTEGER DEFAULT 1');
-ensureColumn('model_parts', 'active', 'INTEGER DEFAULT 1');
-ensureColumn('loading_items', 'cargo_item_id', 'INTEGER');
 
-const defaultPins = { create_pin: '1111', edit_pin: '2222', delete_pin: '3333' };
-const insertSetting = db.prepare('INSERT OR IGNORE INTO settings (key, value) VALUES (?,?)');
-Object.entries(defaultPins).forEach(([k, v]) => insertSetting.run(k, v));
+  data.orders.forEach(o => {
+    if (o.assignedUserId === undefined) { o.assignedUserId = null; changed = true; }
+    if (o.stationIndex === undefined) { o.stationIndex = 0; changed = true; }
+    if (o.done === undefined) { o.done = false; changed = true; }
+    if (o.completedStations === undefined) { o.completedStations = []; changed = true; }
+    if (o.parentOrderId === undefined) { o.parentOrderId = null; changed = true; }
+    if (o.stationEnteredAt === undefined) { o.stationEnteredAt = o.createdAt || Date.now(); changed = true; }
+    if (o.urgent === undefined) { o.urgent = false; changed = true; }
+    if (o.customerId === undefined) { o.customerId = null; changed = true; }
+  });
 
-function checkPin(type, code) {
-  if (!code) return false;
-  const row = db.prepare('SELECT value FROM settings WHERE key=?').get(type + '_pin');
-  return !!row && String(row.value) === String(code).trim();
-}
+  data.users.forEach(u => {
+    if (u.stationAccess === undefined) { u.stationAccess = []; changed = true; }
+  });
 
-function logHistory(action, entity, details, actor) {
-  db.prepare('INSERT INTO history_log (action, entity, details, actor) VALUES (?,?,?,?)')
-    .run(action, entity, typeof details === 'string' ? details : JSON.stringify(details), actor || 'admin');
+  return changed;
 }
 
-module.exports = { db, logHistory, checkPin };
+function load() {
+  if (!fs.existsSync(FILE)) {
+    save(defaultData());
+  }
+  const raw = fs.readFileSync(FILE, 'utf-8');
+  const data = JSON.parse(raw);
+  const changed = migrate(data);
+  if (changed) save(data);
+  return data;
+}
+
+function save(data) {
+  if (!fs.existsSync(DATA_DIR)) fs.mkdirSync(DATA_DIR, { recursive: true });
+  fs.writeFileSync(FILE, JSON.stringify(data, null, 2));
+}
+
+module.exports = { load, save, nanoid, bcrypt };
