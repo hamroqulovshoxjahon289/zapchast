@@ -12,7 +12,8 @@ db.exec(`
 CREATE TABLE IF NOT EXISTS categories (
   id INTEGER PRIMARY KEY AUTOINCREMENT,
   name TEXT NOT NULL,
-  created_at TEXT DEFAULT (datetime('now'))
+  active INTEGER DEFAULT 1,
+  created_at TEXT DEFAULT (datetime('now', '+5 hours'))
 );
 
 CREATE TABLE IF NOT EXISTS parts (
@@ -24,16 +25,17 @@ CREATE TABLE IF NOT EXISTS parts (
   has_quantity INTEGER DEFAULT 0,
   has_weight INTEGER DEFAULT 0,
   photo TEXT,
-  created_at TEXT DEFAULT (datetime('now')),
-  updated_at TEXT DEFAULT (datetime('now'))
+  active INTEGER DEFAULT 1,
+  created_at TEXT DEFAULT (datetime('now', '+5 hours')),
+  updated_at TEXT DEFAULT (datetime('now', '+5 hours'))
 );
 
 CREATE TABLE IF NOT EXISTS models (
   id INTEGER PRIMARY KEY AUTOINCREMENT,
   category_id INTEGER NOT NULL,
   name TEXT NOT NULL,
-  code TEXT,
-  created_at TEXT DEFAULT (datetime('now')),
+  active INTEGER DEFAULT 1,
+  created_at TEXT DEFAULT (datetime('now', '+5 hours')),
   FOREIGN KEY(category_id) REFERENCES categories(id) ON DELETE CASCADE
 );
 
@@ -53,7 +55,7 @@ CREATE TABLE IF NOT EXISTS workers (
   id INTEGER PRIMARY KEY AUTOINCREMENT,
   name TEXT NOT NULL,
   phone TEXT,
-  created_at TEXT DEFAULT (datetime('now'))
+  created_at TEXT DEFAULT (datetime('now', '+5 hours'))
 );
 
 CREATE TABLE IF NOT EXISTS picking_sessions (
@@ -61,7 +63,7 @@ CREATE TABLE IF NOT EXISTS picking_sessions (
   worker_id INTEGER NOT NULL,
   model_id INTEGER NOT NULL,
   status TEXT DEFAULT 'active',
-  created_at TEXT DEFAULT (datetime('now')),
+  created_at TEXT DEFAULT (datetime('now', '+5 hours')),
   finished_at TEXT,
   FOREIGN KEY(worker_id) REFERENCES workers(id),
   FOREIGN KEY(model_id) REFERENCES models(id)
@@ -83,40 +85,119 @@ CREATE TABLE IF NOT EXISTS history_log (
   entity TEXT NOT NULL,
   details TEXT,
   actor TEXT,
-  created_at TEXT DEFAULT (datetime('now'))
+  created_at TEXT DEFAULT (datetime('now', '+5 hours'))
+);
+
+CREATE TABLE IF NOT EXISTS settings (
+  key TEXT PRIMARY KEY,
+  value TEXT
+);
+
+-- ==== YUK (kuzovga ortish) tizimi ====
+-- Umumiy yuk narsalari ro'yxati (krisha, bakavoy, polka, xdf va h.k.), har birida avtomatik QR/shtrix-kod
+CREATE TABLE IF NOT EXISTS cargo_items (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  name TEXT NOT NULL,
+  barcode TEXT UNIQUE,
+  active INTEGER DEFAULT 1,
+  created_at TEXT DEFAULT (datetime('now', '+5 hours'))
+);
+
+-- Har bir yuk narsasi (upakovka) ichidagi detallar ro'yxati: nomi, o'lchami, soni
+CREATE TABLE IF NOT EXISTS cargo_item_details (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  cargo_item_id INTEGER NOT NULL,
+  name TEXT NOT NULL,
+  size TEXT,
+  quantity REAL,
+  sort_order INTEGER DEFAULT 0,
+  FOREIGN KEY(cargo_item_id) REFERENCES cargo_items(id) ON DELETE CASCADE
+);
+
+-- Har bir modelga qaysi yuk narsalari kerakligi (krisha, bakavoy, polka, xdf tanlovi)
+CREATE TABLE IF NOT EXISTS model_cargo_items (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  model_id INTEGER NOT NULL,
+  cargo_item_id INTEGER NOT NULL,
+  active INTEGER DEFAULT 1,
+  FOREIGN KEY(model_id) REFERENCES models(id) ON DELETE CASCADE,
+  FOREIGN KEY(cargo_item_id) REFERENCES cargo_items(id) ON DELETE CASCADE
+);
+
+CREATE TABLE IF NOT EXISTS loading_sessions (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  model_id INTEGER NOT NULL,
+  status TEXT DEFAULT 'active',
+  created_at TEXT DEFAULT (datetime('now', '+5 hours')),
+  finished_at TEXT,
+  FOREIGN KEY(model_id) REFERENCES models(id)
+);
+
+-- item_type: 'cargo' (krisha/bakavoy/polka/xdf...) yoki 'zapchast' (shu modelning zapchast qutisi)
+CREATE TABLE IF NOT EXISTS loading_items (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  loading_session_id INTEGER NOT NULL,
+  item_type TEXT NOT NULL,
+  name TEXT NOT NULL,
+  barcode TEXT,
+  cargo_item_id INTEGER,
+  status TEXT DEFAULT 'pending', -- pending | scanned
+  scanned_at TEXT,
+  FOREIGN KEY(loading_session_id) REFERENCES loading_sessions(id) ON DELETE CASCADE
+);
+
+-- ==== OMBOR (firma ehtiyoji uchun umumiy zapchastlar, modelga bog'liq emas) ====
+-- Masalan F25 kabi narsalar — har kim kelib QR-kodini skan qilsa, ombordan avtomatik 1 tasi ayriladi
+CREATE TABLE IF NOT EXISTS warehouse_items (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  name TEXT NOT NULL,
+  code TEXT UNIQUE NOT NULL,
+  barcode TEXT UNIQUE,
+  stock REAL DEFAULT 0,
+  min_threshold REAL DEFAULT 0,
+  active INTEGER DEFAULT 1,
+  created_at TEXT DEFAULT (datetime('now', '+5 hours'))
+);
+
+CREATE TABLE IF NOT EXISTS warehouse_log (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  warehouse_item_id INTEGER NOT NULL,
+  change_amount REAL NOT NULL,
+  type TEXT NOT NULL, -- kirim | chiqim
+  note TEXT,
+  created_at TEXT DEFAULT (datetime('now', '+5 hours')),
+  FOREIGN KEY(warehouse_item_id) REFERENCES warehouse_items(id) ON DELETE CASCADE
 );
 `);
 
-// Eski bazalarda 'models' jadvalida 'code' ustuni bo'lmasligi mumkin — qo'shib qo'yamiz.
-try { db.exec(`ALTER TABLE models ADD COLUMN code TEXT`); } catch (e) { /* ustun allaqachon bor */ }
+// Eski bazalarga (ilgari yaratilgan) "active" ustunini qo'shib qo'yamiz, agar mavjud bo'lmasa
+function ensureColumn(table, column, def) {
+  const cols = db.prepare(`PRAGMA table_info(${table})`).all();
+  if (!cols.some(c => c.name === column)) {
+    db.exec(`ALTER TABLE ${table} ADD COLUMN ${column} ${def}`);
+  }
+}
+ensureColumn('categories', 'active', 'INTEGER DEFAULT 1');
+ensureColumn('parts', 'active', 'INTEGER DEFAULT 1');
+ensureColumn('models', 'active', 'INTEGER DEFAULT 1');
+ensureColumn('model_parts', 'active', 'INTEGER DEFAULT 1');
+ensureColumn('loading_items', 'cargo_item_id', 'INTEGER');
+ensureColumn('model_parts', 'sort_order', 'INTEGER DEFAULT 0');
+ensureColumn('model_cargo_items', 'sort_order', 'INTEGER DEFAULT 0');
 
-// Eski bazalarda 'model_parts' jadvalida 'active' ustuni bo'lmasligi mumkin.
-// Bu ustun modeldan zapchast "olib tashlanganda" uni butunlay o'chirmay,
-// faqat nofaol qilib qo'yish uchun kerak — shunda yakunlangan terish
-// jarayonlarining tarixi (FOREIGN KEY) buzilmaydi.
-try { db.exec(`ALTER TABLE model_parts ADD COLUMN active INTEGER DEFAULT 1`); } catch (e) { /* ustun allaqachon bor */ }
+const defaultPins = { create_pin: '1111', edit_pin: '2222', delete_pin: '3333' };
+const insertSetting = db.prepare('INSERT OR IGNORE INTO settings (key, value) VALUES (?,?)');
+Object.entries(defaultPins).forEach(([k, v]) => insertSetting.run(k, v));
 
-// Kod berilmagan (eski) modellarga avtomatik 4 xonali unikal kod tayinlaymiz.
-(function backfillModelCodes() {
-  const missing = db.prepare(`SELECT id FROM models WHERE code IS NULL OR TRIM(code) = ''`).all();
-  if (!missing.length) return;
-  const used = new Set(
-    db.prepare(`SELECT code FROM models WHERE code IS NOT NULL AND TRIM(code) != ''`).all()
-      .map(r => parseInt(r.code, 10)).filter(n => !isNaN(n))
-  );
-  const assign = db.prepare('UPDATE models SET code=? WHERE id=?');
-  let next = 1;
-  missing.forEach(row => {
-    while (used.has(next) && next <= 9999) next++;
-    const code = String(next).padStart(4, '0');
-    assign.run(code, row.id);
-    used.add(next);
-  });
-})();
+function checkPin(type, code) {
+  if (!code) return false;
+  const row = db.prepare('SELECT value FROM settings WHERE key=?').get(type + '_pin');
+  return !!row && String(row.value) === String(code).trim();
+}
 
 function logHistory(action, entity, details, actor) {
   db.prepare('INSERT INTO history_log (action, entity, details, actor) VALUES (?,?,?,?)')
     .run(action, entity, typeof details === 'string' ? details : JSON.stringify(details), actor || 'admin');
 }
 
-module.exports = { db, logHistory };
+module.exports = { db, logHistory, checkPin };

@@ -133,10 +133,11 @@ async function startSession() {
 async function loadSession() {
   const s = await api('/api/loading/sessions/' + currentSession);
   document.getElementById('sessionTitle').textContent = `${s.category_name} > ${s.model_name}`;
-  document.getElementById('itemsList').innerHTML = s.items.map(it => {
+  document.getElementById('itemsList').innerHTML = s.items.map((it, idx) => {
     const icon = it.status === 'scanned' ? '✅' : '⏳';
     const label = it.item_type === 'zapchast' ? `${it.name} (shu modelning zapchast qutisi)` : it.name;
     return `<div class="pick-item ${it.status}">
+      <span class="badge info" style="min-width:26px; text-align:center;">${idx + 1}</span>
       <div class="info">
         <strong>${label}</strong>
         ${it.status === 'pending' ? `<span class="badge bad" style="margin-left:8px;">Hali yuklanmadi</span>` : `<span class="badge ok" style="margin-left:8px;">Yuklandi</span>`}

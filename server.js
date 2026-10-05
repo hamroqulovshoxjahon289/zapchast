@@ -20,10 +20,19 @@ app.use('/api/models', require('./routes/models'));
 app.use('/api/workers', require('./routes/workers'));
 app.use('/api/sessions', require('./routes/sessions')(io));
 app.use('/api/history', require('./routes/history'));
+app.use('/api/settings', require('./routes/settings'));
+app.use('/api/cargo-items', require('./routes/cargo-items'));
+app.use('/api/loading', require('./routes/loading')(io));
+app.use('/api/warehouse', require('./routes/warehouse'));
+app.use('/api/stats', require('./routes/stats'));
+app.use('/api/export', require('./routes/export'));
 
 io.on('connection', (socket) => {
   socket.on('join_session', (sessionId) => {
     socket.join('session_' + sessionId);
+  });
+  socket.on('join_loading', (sessionId) => {
+    socket.join('loading_' + sessionId);
   });
 });
 

@@ -48,6 +48,22 @@
     <input id="authPin" type="password" maxlength="4" inputmode="numeric" placeholder="joriy tahrirlash kodi">
     <button class="btn" onclick="save()">Saqlash</button>
   </div>
+
+  <div class="card" id="backupCard" style="display:none">
+    <h2>💾 Zaxira nusxa (backup)</h2>
+    <p class="muted">Saytga yangi funksiya qo'shilganda yoki yangilanganda kiritgan ma'lumotlaringiz (data papkasi) hech qachon o'chirilmaydi — kod fayllari va ma'lumotlar bazasi butunlay alohida saqlanadi. Shunga qaramay, qo'shimcha xotirjamlik uchun istalgan vaqtda butun bazangizni bitta faylga yuklab olishingiz mumkin.</p>
+    <button class="btn secondary" onclick="downloadBackup()">📥 Bazani yuklab olish (.db)</button>
+  </div>
+</div>
+
+<div class="modal-overlay" id="backupPinModal">
+  <div class="modal pin-modal">
+    <h3>💾 Zaxira nusxa</h3>
+    <p class="muted">Tasdiqlash uchun "Tahrirlash kodi"ni kiriting</p>
+    <input id="backupPinInput" type="password" maxlength="4" inputmode="numeric" placeholder="••••">
+    <button class="btn" onclick="confirmBackup()">Yuklab olish</button>
+    <button class="btn secondary" onclick="document.getElementById('backupPinModal').classList.remove('show')" style="margin-top:8px">Bekor qilish</button>
+  </div>
 </div>
 
 <script src="js/common.js"></script>
@@ -62,6 +78,7 @@ async function checkAccess() {
     if (r.ok) {
       document.getElementById('lockedCard').style.display = 'none';
       document.getElementById('settingsCard').style.display = 'block';
+      document.getElementById('backupCard').style.display = 'block';
     } else {
       toast('Kod noto\'g\'ri');
     }
@@ -86,6 +103,43 @@ async function save() {
     document.getElementById('editPin').value = '';
     document.getElementById('deletePin').value = '';
     document.getElementById('authPin').value = '';
+  } catch (e) {
+    toast(e.message);
+  }
+}
+
+function downloadBackup() {
+  document.getElementById('backupPinInput').value = '';
+  document.getElementById('backupPinModal').classList.add('show');
+}
+
+async function confirmBackup() {
+  const pin = document.getElementById('backupPinInput').value.trim();
+  if (pin.length !== 4) return toast('4 xonali kodni kiriting');
+  try {
+    const res = await fetch('/api/settings/backup', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ pin })
+    });
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({ error: 'Xatolik' }));
+      throw new Error(err.error);
+    }
+    const blob = await res.blob();
+    const disposition = res.headers.get('Content-Disposition') || '';
+    const match = disposition.match(/filename="?([^"]+)"?/);
+    const filename = match ? match[1] : 'temurshox-zaxira.db';
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = filename;
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    URL.revokeObjectURL(url);
+    document.getElementById('backupPinModal').classList.remove('show');
+    toast('Zaxira nusxa yuklandi');
   } catch (e) {
     toast(e.message);
   }

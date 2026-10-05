@@ -2,17 +2,19 @@
 <html lang="uz">
 <head>
 <meta charset="UTF-8">
+<script>(function(){var t=localStorage.getItem("theme")||"dark";document.documentElement.setAttribute("data-theme",t);})();</script>
 <title>Modellar</title>
 <meta name="viewport" content="width=device-width, initial-scale=1">
+<link rel="icon" href="assets/logo.png">
 <link rel="stylesheet" href="css/style.css">
 </head>
 <body>
 <div class="topbar">
-  <h1>🪚 Temurshox mebel</h1>
-  <div class="nav" id="nav"></div>
+  <h1><img src="assets/logo.png" class="logo" alt="logo"> <span>Temurshox mebel</span></h1>
+  <div class="topbar-right"><div class="nav" id="nav"></div><button class="theme-toggle" id="themeToggle" onclick="toggleTheme()" title="Rejimni almashtirish">☀️</button></div>
 </div>
 <div class="container">
-  <div class="card" style="display:flex; justify-content:space-between; align-items:center;">
+  <div class="card accent-card" style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:14px;">
     <h2 style="margin:0">🗂 Kategoriya va modellar</h2>
     <button class="btn" onclick="openModal()">➕ Yangi model</button>
   </div>
@@ -25,21 +27,27 @@
 </div>
 
 <div class="modal-overlay" id="modalOverlay">
-  <div class="modal" style="max-width:680px">
+  <div class="modal" style="max-width:960px; width:95vw;">
     <h3 id="modalTitle">Yangi model</h3>
     <form onsubmit="return saveModel(event)">
       <input type="hidden" id="modelId">
-      <label>Kategoriya</label>
-      <select id="mCategory" required></select>
-      <label>Model nomi</label>
-      <input id="mName" required placeholder="masalan: Olma">
-      <label>Kod (4 xonali)</label>
-      <input id="mCode" maxlength="4" placeholder="avtomatik beriladi">
-      <div style="display:flex; justify-content:space-between; align-items:center; gap:10px; flex-wrap:wrap;">
-        <label style="margin:0">Ushbu modelga kerak bo'ladigan zapchastlar</label>
-        <button type="button" class="btn secondary small" onclick="openTemplateModal()">📋 Tayyor shablondan foydalanish</button>
+      <div class="grid cols-2">
+        <div>
+          <label>Kategoriya</label>
+          <select id="mCategory" required></select>
+        </div>
+        <div>
+          <label>Model nomi</label>
+          <input id="mName" required placeholder="masalan: Olma">
+        </div>
       </div>
-      <div id="partsCheckList" style="max-height:340px; overflow-y:auto; border:1px solid var(--border); border-radius:8px; padding:10px; margin-top:6px;"></div>
+      <button type="button" class="btn secondary small" onclick="openTemplateModal()" style="margin-bottom:14px">📋 Tayyor shablondan foydalanish</button>
+      <label>Ushbu modelga kerak bo'ladigan zapchastlar <span class="muted" id="partsSelectedCount" style="text-transform:none; font-weight:400;"></span></label>
+      <input id="partsSearch" placeholder="🔍 Zapchast nomi yoki kodi bo'yicha qidirish..." oninput="renderPartsCheckList()" style="margin-bottom:8px">
+      <div id="partsCheckList" class="parts-grid"></div>
+      <label style="margin-top:14px">Ushbu modelni yuklashda kerak bo'ladigan narsalar (krisha, bakavoy, polka va h.k.)</label>
+      <div id="cargoCheckList" class="parts-grid" style="max-height:180px;"></div>
+      <p class="muted" style="margin-top:8px">Eslatma: agar yuqorida zapchast tanlangan bo'lsa, yuklash ro'yxatiga "Zapchast" nomli qo'shimcha band avtomatik qo'shiladi.</p>
       <div style="display:flex; gap:10px; margin-top:14px;">
         <button type="submit" class="btn">Saqlash</button>
         <button type="button" class="btn secondary" onclick="closeModal()">Bekor qilish</button>
@@ -48,17 +56,17 @@
   </div>
 </div>
 
-<div class="modal-overlay" id="templateModalOverlay">
-  <div class="modal" style="max-width:420px">
+<div class="modal-overlay" id="templateModal">
+  <div class="modal" style="max-width:460px">
     <h3>📋 Tayyor shablondan foydalanish</h3>
-    <p class="muted" style="margin-top:-6px">Boshqa modeldagi zapchastlar ro'yxati va miqdorlarini shu yerga nusxalaysiz, so'ng kerakli joylarini o'zgartirib saqlaysiz.</p>
+    <p class="muted">Mavjud modeldan zapchast/yuk ro'yxatini nusxalab oling, so'ng o'zingizga moslab o'zgartiring (kerakmaslarini olib tashlang, miqdorlarini o'zgartiring, yangi qo'shing).</p>
     <label>Kategoriya</label>
-    <select id="tplCategory" onchange="loadTplModels()"></select>
-    <label>Model (shablon sifatida)</label>
+    <select id="tplCategory" onchange="loadTemplateModels()"></select>
+    <label>Model (shablon)</label>
     <select id="tplModel"></select>
     <div style="display:flex; gap:10px; margin-top:14px;">
-      <button type="button" class="btn" onclick="applyTemplate()">✔ Shablonni qo'llash</button>
-      <button type="button" class="btn secondary" onclick="closeTemplateModal()">Bekor qilish</button>
+      <button type="button" class="btn" onclick="applyTemplate()">Yuklash</button>
+      <button type="button" class="btn secondary" onclick="document.getElementById('templateModal').classList.remove('show')">Bekor qilish</button>
     </div>
   </div>
 </div>
@@ -66,10 +74,10 @@
 <script src="js/common.js"></script>
 <script>
 renderNav('models.html');
-let categories = [], parts = [], models = [];
+let categories = [], parts = [], models = [], cargoItems = [];
 
 async function loadAll() {
-  [categories, parts, models] = await Promise.all([api('/api/categories'), api('/api/parts'), api('/api/models')]);
+  [categories, parts, models, cargoItems] = await Promise.all([api('/api/categories'), api('/api/parts'), api('/api/models'), api('/api/cargo-items')]);
   const catSelect = document.getElementById('filterCategory');
   catSelect.innerHTML = '<option value="">— Barchasi —</option>' + categories.map(c => `<option value="${c.id}">${c.name}</option>`).join('');
   document.getElementById('mCategory').innerHTML = categories.map(c => `<option value="${c.id}">${c.name}</option>`).join('');
@@ -85,12 +93,14 @@ function renderTree() {
     const catModels = models.filter(m => m.category_id === c.id);
     return `<div style="margin-top:16px">
       <h3 style="color:var(--accent2); margin-bottom:6px">${c.name}</h3>
-      ${catModels.length ? `<table><thead><tr><th>Model</th><th>Kod</th><th>Zapchastlar soni</th><th></th></tr></thead><tbody>
+      ${catModels.length ? `<table><thead><tr><th>Model</th><th>Zapchastlar soni</th><th>Yuk narsalari</th><th></th></tr></thead><tbody>
         ${catModels.map(m => `<tr>
           <td>${m.name}</td>
-          <td><span class="code-badge model-code">${m.code || '—'}</span></td>
           <td class="muted" id="pc-${m.id}">—</td>
-          <td><button class="btn secondary small" onclick="editModel(${m.id})">Tahrirlash</button>
+          <td class="muted" id="cc-${m.id}">—</td>
+          <td style="white-space:nowrap">
+          <button class="btn secondary small" onclick="editModel(${m.id})">Tahrirlash</button>
+          <a class="btn secondary small" href="cargo-labels.html?model=${m.id}" target="_blank">🏷 Yorliqlar</a>
           <button class="btn danger small" onclick="delModel(${m.id})">O'chirish</button></td>
         </tr>`).join('')}
       </tbody></table>` : '<p class="muted">Model yo\'q</p>'}
@@ -106,42 +116,135 @@ async function catModelsCountFetch(cats) {
       const full = await api('/api/models/' + m.id);
       const el = document.getElementById('pc-' + m.id);
       if (el) el.textContent = full.parts.length + ' ta';
+      const cel = document.getElementById('cc-' + m.id);
+      if (cel) cel.textContent = full.cargo_items.length + ' ta';
     }
   }
 }
 
-function renderPartsCheckList(selected = {}) {
+let partsState = {}; // { [part_id]: { checked, quantity, weight, length } }
+let partsOrder = []; // tanlangan zapchastlar ID'lari, tanlash tartibida (raqamlash uchun)
+
+function renderPartsCheckList() {
   const container = document.getElementById('partsCheckList');
-  container.innerHTML = parts.map(p => {
-    const sel = selected[p.id];
-    return `<div style="padding:8px; border-bottom:1px solid var(--border)">
-      <div class="checkbox-row">
-        <input type="checkbox" id="chk-${p.id}" ${sel ? 'checked' : ''} onchange="toggleExtra(${p.id})">
+  const q = (document.getElementById('partsSearch').value || '').toLowerCase().trim();
+  const filtered = parts.filter(p => !q || p.name.toLowerCase().includes(q) || (p.code || '').includes(q));
+
+  container.innerHTML = filtered.map(p => {
+    const st = partsState[p.id] || {};
+    const num = st.checked ? partsOrder.indexOf(p.id) + 1 : null;
+    return `<div class="parts-grid-item">
+      <div class="checkbox-row" style="margin-bottom:0">
+        <input type="checkbox" id="chk-${p.id}" ${st.checked ? 'checked' : ''} onchange="onPartToggle(${p.id})">
+        ${num ? `<span class="badge info" style="min-width:22px; text-align:center;">${num}</span>` : ''}
         <label style="margin:0"><strong>${p.name}</strong> <span class="muted">(${p.code})</span></label>
       </div>
-      <div id="extra-${p.id}" style="display:${sel ? 'flex' : 'none'}; gap:8px; margin-left:26px;">
-        ${p.has_quantity ? `<input type="number" step="any" placeholder="Soni" id="qty-${p.id}" value="${sel ? (sel.quantity ?? '') : ''}" style="margin:0">` : ''}
-        ${p.has_weight ? `<input type="number" step="any" placeholder="Grammi" id="wt-${p.id}" value="${sel ? (sel.weight ?? '') : ''}" style="margin:0">` : ''}
-        ${p.has_length ? `<input type="number" step="any" placeholder="Uzunligi" id="len-${p.id}" value="${sel ? (sel.length ?? '') : ''}" style="margin:0">` : ''}
+      <div id="extra-${p.id}" class="extra-row" style="display:${st.checked ? 'flex' : 'none'}">
+        ${p.has_quantity ? `<input type="number" step="any" placeholder="Soni" value="${st.quantity ?? ''}" oninput="onPartExtra(${p.id},'quantity',this.value)">` : ''}
+        ${p.has_weight ? `<input type="number" step="any" placeholder="Grammi" value="${st.weight ?? ''}" oninput="onPartExtra(${p.id},'weight',this.value)">` : ''}
+        ${p.has_length ? `<input type="number" step="any" placeholder="Uzunligi" value="${st.length ?? ''}" oninput="onPartExtra(${p.id},'length',this.value)">` : ''}
       </div>
+    </div>`;
+  }).join('') || '<p class="muted" style="grid-column:1/-1; margin:0">Hech narsa topilmadi</p>';
+
+  updatePartsSelectedCount();
+}
+
+function onPartToggle(id) {
+  const checked = document.getElementById('chk-' + id).checked;
+  partsState[id] = { ...(partsState[id] || {}), checked };
+  if (checked) {
+    if (!partsOrder.includes(id)) partsOrder.push(id);
+  } else {
+    partsOrder = partsOrder.filter(x => x !== id);
+  }
+  renderPartsCheckList(); // raqamlarni yangilash uchun qayta chizamiz
+}
+
+function onPartExtra(id, field, value) {
+  partsState[id] = { ...(partsState[id] || {}), [field]: value };
+}
+
+function updatePartsSelectedCount() {
+  const n = partsOrder.length;
+  const el = document.getElementById('partsSelectedCount');
+  if (el) el.textContent = n ? `(${n} ta tanlandi)` : '';
+}
+
+let cargoOrder = []; // tanlangan yuk narsalari ID'lari, tanlash tartibida
+
+function renderCargoCheckList() {
+  const container = document.getElementById('cargoCheckList');
+  if (!cargoItems.length) {
+    container.innerHTML = '<p class="muted" style="margin:0">Hali yuk narsasi yo\'q. Avval "Yuk narsalari" bo\'limidan qo\'shing.</p>';
+    return;
+  }
+  container.innerHTML = cargoItems.map(ci => {
+    const checked = cargoOrder.includes(ci.id);
+    const num = checked ? cargoOrder.indexOf(ci.id) + 1 : null;
+    return `<div class="checkbox-row">
+      <input type="checkbox" id="cargo-chk-${ci.id}" ${checked ? 'checked' : ''} onchange="onCargoToggle(${ci.id})">
+      ${num ? `<span class="badge info" style="min-width:22px; text-align:center;">${num}</span>` : ''}
+      <label style="margin:0">${ci.name}</label>
     </div>`;
   }).join('');
 }
 
-function toggleExtra(id) {
-  const checked = document.getElementById('chk-' + id).checked;
-  document.getElementById('extra-' + id).style.display = checked ? 'flex' : 'none';
+function onCargoToggle(id) {
+  const checked = document.getElementById('cargo-chk-' + id).checked;
+  if (checked) {
+    if (!cargoOrder.includes(id)) cargoOrder.push(id);
+  } else {
+    cargoOrder = cargoOrder.filter(x => x !== id);
+  }
+  renderCargoCheckList();
 }
 
-async function openModal() {
+function openModal() {
   document.getElementById('modalTitle').textContent = 'Yangi model';
   document.getElementById('modelId').value = '';
   document.getElementById('mName').value = '';
   document.getElementById('mCategory').value = categories[0]?.id || '';
-  renderPartsCheckList({});
-  const r = await api('/api/models/next-code');
-  document.getElementById('mCode').value = r.code;
+  document.getElementById('partsSearch').value = '';
+  partsState = {};
+  partsOrder = [];
+  cargoOrder = [];
+  renderPartsCheckList();
+  renderCargoCheckList();
   document.getElementById('modalOverlay').classList.add('show');
+}
+
+function openTemplateModal() {
+  document.getElementById('tplCategory').innerHTML = categories.map(c => `<option value="${c.id}">${c.name}</option>`).join('');
+  loadTemplateModels();
+  document.getElementById('templateModal').classList.add('show');
+}
+
+function loadTemplateModels() {
+  const catId = document.getElementById('tplCategory').value;
+  const ms = models.filter(m => String(m.category_id) === catId);
+  document.getElementById('tplModel').innerHTML = ms.map(m => `<option value="${m.id}">${m.name}</option>`).join('') || '<option disabled>Bu kategoriyada model yo\'q</option>';
+}
+
+async function applyTemplate() {
+  const tplId = document.getElementById('tplModel').value;
+  if (!tplId) return toast('Shablon model tanlanmadi');
+  const full = await api('/api/models/' + tplId);
+
+  // Shablon zapchastlarini va yuk narsalarini joriy tanlov holatiga yuklaymiz —
+  // model nomi bo'sh qoladi, foydalanuvchi o'zi yangi nom kiritadi va kerakli joylarini o'zgartiradi
+  partsState = {};
+  partsOrder = [];
+  full.parts.forEach(p => {
+    partsState[p.part_id] = { checked: true, quantity: p.quantity, weight: p.weight, length: p.length };
+    partsOrder.push(p.part_id);
+  });
+  cargoOrder = full.cargo_items.map(ci => ci.cargo_item_id);
+  document.getElementById('partsSearch').value = '';
+  renderPartsCheckList();
+  renderCargoCheckList();
+  document.getElementById('templateModal').classList.remove('show');
+  toast(`"${full.name}" shablonidan ${full.parts.length} ta zapchast va ${full.cargo_items.length} ta yuk narsasi yuklandi — endi moslang`);
 }
 
 function closeModal() {
@@ -153,66 +256,39 @@ async function editModel(id) {
   document.getElementById('modalTitle').textContent = 'Modelni tahrirlash';
   document.getElementById('modelId').value = full.id;
   document.getElementById('mName').value = full.name;
-  document.getElementById('mCode').value = full.code || '';
   document.getElementById('mCategory').value = full.category_id;
-  const selected = {};
-  full.parts.forEach(p => selected[p.part_id] = p);
-  renderPartsCheckList(selected);
+  document.getElementById('partsSearch').value = '';
+  partsState = {};
+  partsOrder = []; // full.parts backenddan sort_order bo'yicha keladi, shu tartibda raqamlanadi
+  full.parts.forEach(p => {
+    partsState[p.part_id] = { checked: true, quantity: p.quantity, weight: p.weight, length: p.length };
+    partsOrder.push(p.part_id);
+  });
+  cargoOrder = full.cargo_items.map(ci => ci.cargo_item_id);
+  renderPartsCheckList();
+  renderCargoCheckList();
   document.getElementById('modalOverlay').classList.add('show');
-}
-
-function openTemplateModal() {
-  const currentCat = document.getElementById('mCategory').value;
-  document.getElementById('tplCategory').innerHTML = categories.map(c => `<option value="${c.id}">${c.name}</option>`).join('');
-  document.getElementById('tplCategory').value = currentCat || (categories[0]?.id || '');
-  loadTplModels();
-  document.getElementById('templateModalOverlay').classList.add('show');
-}
-
-function closeTemplateModal() {
-  document.getElementById('templateModalOverlay').classList.remove('show');
-}
-
-function loadTplModels() {
-  const catId = document.getElementById('tplCategory').value;
-  const ms = models.filter(m => String(m.category_id) === String(catId));
-  document.getElementById('tplModel').innerHTML = ms.map(m =>
-    `<option value="${m.id}">${m.name}${m.code ? ' (' + m.code + ')' : ''}</option>`
-  ).join('') || '<option disabled>Bu kategoriyada model yo\'q</option>';
-}
-
-async function applyTemplate() {
-  const tplId = document.getElementById('tplModel').value;
-  if (!tplId) { toast('Shablon qilib oladigan model tanlang'); return; }
-  const full = await api('/api/models/' + tplId);
-  const selected = {};
-  full.parts.forEach(p => selected[p.part_id] = p);
-  renderPartsCheckList(selected);
-  closeTemplateModal();
-  toast(`"${full.name}" shabloni qo'llandi — endi kerakli joylarini o'zgartirib saqlang`);
 }
 
 async function saveModel(e) {
   e.preventDefault();
   const id = document.getElementById('modelId').value;
-  if (id) {
-    const ok = await askConfirmCode(
-      "✏️ Tahrirlashni tasdiqlash",
-      "O'zgarishlarni saqlash uchun quyidagi kodni kiriting"
-    );
-    if (!ok) return false;
-  }
   const category_id = document.getElementById('mCategory').value;
   const name = document.getElementById('mName').value;
-  const code = document.getElementById('mCode').value;
-  const selectedParts = parts.filter(p => document.getElementById('chk-' + p.id)?.checked).map(p => ({
-    part_id: p.id,
-    quantity: p.has_quantity ? (parseFloat(document.getElementById('qty-' + p.id).value) || null) : null,
-    weight: p.has_weight ? (parseFloat(document.getElementById('wt-' + p.id).value) || null) : null,
-    length: p.has_length ? (parseFloat(document.getElementById('len-' + p.id).value) || null) : null,
-  }));
-  const body = JSON.stringify({ category_id, name, code, parts: selectedParts });
-  try {
+  const selectedParts = partsOrder.map(partId => {
+    const s = partsState[partId] || {};
+    const p = parts.find(pp => String(pp.id) === String(partId));
+    return {
+      part_id: partId,
+      quantity: p && p.has_quantity ? (parseFloat(s.quantity) || null) : null,
+      weight: p && p.has_weight ? (parseFloat(s.weight) || null) : null,
+      length: p && p.has_length ? (parseFloat(s.length) || null) : null,
+    };
+  });
+  const cargo_item_ids = cargoOrder;
+  const type = id ? 'edit' : 'create';
+  await withPin(type, async (pin) => {
+    const body = JSON.stringify({ category_id, name, parts: selectedParts, cargo_item_ids, pin });
     if (id) {
       await api('/api/models/' + id, { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body });
     } else {
@@ -221,22 +297,17 @@ async function saveModel(e) {
     toast('Saqlandi');
     closeModal();
     loadAll();
-  } catch (err) {
-    toast(err.message);
-  }
+  });
   return false;
 }
 
 async function delModel(id) {
-  const model = models.find(m => m.id === id);
-  const ok = await askConfirmCode(
-    "🗑 Modelni o'chirish",
-    `"${model ? model.name : ''}" o'chiriladi. Bu amalni bekor qilib bo'lmaydi.`
-  );
-  if (!ok) return;
-  await api('/api/models/' + id, { method: 'DELETE' });
-  toast('O\'chirildi');
-  loadAll();
+  if (!confirm('Modelni o\'chirishni tasdiqlaysizmi?')) return;
+  await withPin('delete', async (pin) => {
+    await api('/api/models/' + id, { method: 'DELETE', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ pin }) });
+    toast('O\'chirildi');
+    loadAll();
+  });
 }
 
 loadAll();

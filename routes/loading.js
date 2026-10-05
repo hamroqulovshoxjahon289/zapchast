@@ -19,7 +19,7 @@ module.exports = function (io) {
 
     const cargoItems = db.prepare(`SELECT ci.id, ci.name, ci.barcode FROM model_cargo_items mc
       JOIN cargo_items ci ON ci.id = mc.cargo_item_id
-      WHERE mc.model_id=? AND mc.active=1`).all(model_id);
+      WHERE mc.model_id=? AND mc.active=1 ORDER BY mc.sort_order, mc.id`).all(model_id);
     const insertItem = db.prepare('INSERT INTO loading_items (loading_session_id, item_type, name, barcode, cargo_item_id) VALUES (?,?,?,?,?)');
     cargoItems.forEach(ci => insertItem.run(sessionId, 'cargo', ci.name, ci.barcode, ci.id));
 
@@ -39,7 +39,7 @@ module.exports = function (io) {
       JOIN categories c ON c.id = m.category_id
       WHERE ls.id=?`).get(req.params.id);
     if (!session) return res.status(404).json({ error: 'Topilmadi' });
-    const items = db.prepare('SELECT * FROM loading_items WHERE loading_session_id=?').all(req.params.id);
+    const items = db.prepare('SELECT * FROM loading_items WHERE loading_session_id=? ORDER BY id').all(req.params.id);
     res.json({ ...session, items });
   });
 
@@ -56,7 +56,7 @@ module.exports = function (io) {
 
   router.post('/sessions/:id/finish', (req, res) => {
     db.prepare(`UPDATE loading_sessions SET status='finished', finished_at=datetime('now','+5 hours') WHERE id=?`).run(req.params.id);
-    const items = db.prepare('SELECT * FROM loading_items WHERE loading_session_id=?').all(req.params.id);
+    const items = db.prepare('SELECT * FROM loading_items WHERE loading_session_id=? ORDER BY id').all(req.params.id);
     const missing = items.filter(i => i.status === 'pending').map(i => i.name);
     logHistory('finish', 'loading_session', { id: req.params.id, missing });
     io.to('loading_' + req.params.id).emit('loading_session_finished', { id: req.params.id });

@@ -2,8 +2,10 @@
 <html lang="uz">
 <head>
 <meta charset="UTF-8">
+<script>(function(){var t=localStorage.getItem("theme")||"dark";document.documentElement.setAttribute("data-theme",t);})();</script>
 <title>Yorliqlar</title>
 <meta name="viewport" content="width=device-width, initial-scale=1">
+<link rel="icon" href="assets/logo.png">
 <link rel="stylesheet" href="css/style.css">
 <style>
   .labels-grid {
@@ -30,11 +32,11 @@
 </head>
 <body>
 <div class="topbar no-print">
-  <h1>🪚 Temurshox mebel</h1>
-  <div class="nav" id="nav"></div>
+  <h1><img src="assets/logo.png" class="logo" alt="logo"> <span>Temurshox mebel</span></h1>
+  <div class="topbar-right"><div class="nav" id="nav"></div><button class="theme-toggle no-print" id="themeToggle" onclick="toggleTheme()" title="Rejimni almashtirish">☀️</button></div>
 </div>
 <div class="container">
-  <div class="card no-print">
+  <div class="card no-print" id="printControls">
     <h2>🏷 Zapchast yorliqlari (QR-kod)</h2>
     <p class="muted">Har bir zapchast uchun QR-kodli yorliq. Kesib olib jismoniy zapchastga yopishtiring — keyinchalik terish jarayonida shu QR-kod skan qilinadi.</p>
     <button class="btn" onclick="window.print()">🖨 Barchasini chop etish</button>
@@ -45,6 +47,7 @@
 <script src="js/common.js"></script>
 <script>
 renderNav('parts.html');
+initThermalControls('printControls', 'labelsGrid');
 async function load() {
   const parts = await api('/api/parts');
   document.getElementById('labelsGrid').innerHTML = parts.map(p => `

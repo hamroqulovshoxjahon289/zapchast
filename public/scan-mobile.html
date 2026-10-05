@@ -2,14 +2,17 @@
 <html lang="uz">
 <head>
 <meta charset="UTF-8">
+<script>(function(){var t=localStorage.getItem("theme")||"dark";document.documentElement.setAttribute("data-theme",t);})();</script>
 <title>Telefon skaner</title>
 <meta name="viewport" content="width=device-width, initial-scale=1">
+<link rel="icon" href="assets/logo.png">
 <link rel="stylesheet" href="css/style.css">
 <script src="https://unpkg.com/html5-qrcode@2.3.8/html5-qrcode.min.js"></script>
 </head>
 <body>
 <div class="topbar">
   <h1>📱 Telefon skaner</h1>
+  <button class="theme-toggle" id="themeToggle" onclick="toggleTheme()" title="Rejimni almashtirish">☀️</button>
 </div>
 <div class="container" style="max-width:480px">
   <div class="card" id="statusCard">

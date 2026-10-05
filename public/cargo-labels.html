@@ -56,8 +56,11 @@ async function load() {
 
   const cargoDetailed = await Promise.all(m.cargo_items.map(ci => api('/api/cargo-items/' + ci.cargo_item_id)));
 
+  const totalCount = cargoDetailed.length + (m.has_zapchast ? 1 : 0);
   let html = '';
+  let pkgIndex = 0;
   cargoDetailed.forEach(ci => {
+    pkgIndex++;
     const qr = `https://api.qrserver.com/v1/create-qr-code/?size=90x90&data=${encodeURIComponent(ci.barcode)}`;
     const rows = ci.details.length
       ? ci.details.map((d, i) => `<tr><td>${i + 1}</td><td>${d.name}</td><td>${d.size || '—'}</td><td>${d.quantity ?? '—'}</td></tr>`).join('')
@@ -66,7 +69,7 @@ async function load() {
       <div class="label-card">
         <div class="label-header">
           <div>
-            <div class="label-brand">TEMURSHOX</div>
+            <div class="label-brand">TEMURSHOX <span style="font-size:13px; font-weight:700; color:#555;">— ${pkgIndex}/${totalCount}-quti</span></div>
             <div class="label-model">${m.category_name || ''} / ${m.name}</div>
             <div class="label-package">${ci.name}</div>
           </div>
@@ -80,11 +83,12 @@ async function load() {
   });
 
   if (m.has_zapchast) {
+    pkgIndex++;
     const zpBarcode = 'ZP' + String(m.id).padStart(6, '0');
     const qr = `https://api.qrserver.com/v1/create-qr-code/?size=90x90&data=${encodeURIComponent(zpBarcode)}`;
     html += `
       <div class="label-card simple">
-        <div class="label-brand">TEMURSHOX</div>
+        <div class="label-brand">TEMURSHOX <span style="font-size:13px; font-weight:700; color:#555;">— ${pkgIndex}/${totalCount}-quti</span></div>
         <div class="label-model">${m.category_name || ''} / ${m.name}</div>
         <div class="label-package">Zapchast</div>
         <img class="qr" src="${qr}">
